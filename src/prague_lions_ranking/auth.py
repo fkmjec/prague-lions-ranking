@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 from prague_lions_ranking.database import get_db
 from prague_lions_ranking.models import User, UserRole
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable must be set")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 

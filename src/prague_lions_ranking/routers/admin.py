@@ -61,6 +61,7 @@ async def login(
         httponly=True,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         samesite="lax",
+        secure=True,
     )
     return response
 
@@ -70,20 +71,31 @@ async def admin_dashboard(
     request: Request,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
-    created_user: str | None = None,
-    created_password: str | None = None,
 ):
     users = db.query(User).all()
-    return templates.TemplateResponse(
+
+    # Get flash message from cookie (one-time display)
+    created_user = request.cookies.get("flash_created_user")
+    created_password = request.cookies.get("flash_created_password")
+
+    response = templates.TemplateResponse(
         "admin_dashboard.html",
         {
             "request": request,
             "admin": admin,
             "users": users,
-            "created_user": request.query_params.get("created_user"),
-            "created_password": request.query_params.get("created_password"),
+            "created_user": created_user,
+            "created_password": created_password,
         },
     )
+
+    # Clear flash cookies after reading
+    if created_user:
+        response.delete_cookie("flash_created_user")
+    if created_password:
+        response.delete_cookie("flash_created_password")
+
+    return response
 
 
 @router.post("/admin/users")
@@ -119,10 +131,28 @@ async def create_user(
     db.add(new_user)
     db.commit()
 
-    return RedirectResponse(
-        url=f"/admin/dashboard?created_user={username}&created_password={password}",
+    response = RedirectResponse(
+        url="/admin/dashboard",
         status_code=status.HTTP_302_FOUND,
     )
+    # Use secure httponly cookies for flash messages (not logged in browser history)
+    response.set_cookie(
+        key="flash_created_user",
+        value=username,
+        httponly=True,
+        max_age=60,
+        samesite="lax",
+        secure=True,
+    )
+    response.set_cookie(
+        key="flash_created_password",
+        value=password,
+        httponly=True,
+        max_age=60,
+        samesite="lax",
+        secure=True,
+    )
+    return response
 
 
 @router.get("/logout")

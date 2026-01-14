@@ -101,11 +101,14 @@
             margin-bottom: 0.5rem;
         }
         .password-display {
+            display: inline-block;
             background: #f8f9fa;
-            padding: 0.5rem;
+            padding: 0.25rem 0.5rem;
             border-radius: 4px;
             font-family: monospace;
             word-break: break-all;
+            max-width: 100%;
+            vertical-align: middle;
         }
         .error {
             background: #f8d7da;
@@ -142,6 +145,34 @@
             background: #e2e3e5;
             color: #383d41;
         }
+        .actions {
+            white-space: nowrap;
+        }
+        .btn-reset {
+            padding: 0.25rem 0.5rem;
+            background: #ffc107;
+            color: #212529;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            margin-right: 0.5rem;
+        }
+        .btn-reset:hover {
+            background: #e0a800;
+        }
+        .btn-delete {
+            padding: 0.25rem 0.5rem;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        .btn-delete:hover {
+            background: #c82333;
+        }
     </style>
 </head>
 <body>
@@ -153,9 +184,19 @@
     <div class="container">
         {% if created_user and created_password %}
         <div class="success">
+            {% if is_reset %}
+            <strong>Password reset for "{{ created_user }}"!</strong>
+            {% else %}
             <strong>User "{{ created_user }}" created successfully!</strong>
+            {% endif %}
             <div>Password: <span class="password-display">{{ created_password }}</span></div>
             <small>Please save this password - it will not be shown again.</small>
+        </div>
+        {% endif %}
+
+        {% if deleted_user %}
+        <div class="success">
+            <strong>User "{{ deleted_user }}" has been deleted.</strong>
         </div>
         {% endif %}
 
@@ -192,6 +233,7 @@
                         <th>Username</th>
                         <th>Role</th>
                         <th>Created</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -204,6 +246,16 @@
                             </span>
                         </td>
                         <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td class="actions">
+                            <form method="POST" action="/admin/users/{{ user.id }}/reset-password" style="display:inline;">
+                                <button type="submit" class="btn-reset" onclick="return confirm('Reset password for {{ user.username }}?')">Reset Password</button>
+                            </form>
+                            {% if user.id != admin.id %}
+                            <form method="POST" action="/admin/users/{{ user.id }}/delete" style="display:inline;">
+                                <button type="submit" class="btn-delete" onclick="return confirm('Delete user {{ user.username }}? This cannot be undone.')">Delete</button>
+                            </form>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

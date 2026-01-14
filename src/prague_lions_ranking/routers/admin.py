@@ -77,6 +77,8 @@ async def admin_dashboard(
     # Get flash message from cookie (one-time display)
     created_user = request.cookies.get("flash_created_user")
     created_password = request.cookies.get("flash_created_password")
+    is_reset = request.cookies.get("flash_is_reset")
+    deleted_user = request.cookies.get("flash_deleted_user")
 
     response = templates.TemplateResponse(
         "admin_dashboard.html",
@@ -86,6 +88,8 @@ async def admin_dashboard(
             "users": users,
             "created_user": created_user,
             "created_password": created_password,
+            "is_reset": is_reset,
+            "deleted_user": deleted_user,
         },
     )
 
@@ -94,6 +98,10 @@ async def admin_dashboard(
         response.delete_cookie("flash_created_user")
     if created_password:
         response.delete_cookie("flash_created_password")
+    if is_reset:
+        response.delete_cookie("flash_is_reset")
+    if deleted_user:
+        response.delete_cookie("flash_deleted_user")
 
     return response
 
@@ -147,6 +155,84 @@ async def create_user(
     response.set_cookie(
         key="flash_created_password",
         value=password,
+        httponly=True,
+        max_age=60,
+        samesite="lax",
+        secure=True,
+    )
+    return response
+
+
+@router.post("/admin/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_password = generate_password()
+    user.hashed_password = get_password_hash(new_password)
+    db.commit()
+
+    response = RedirectResponse(
+        url="/admin/dashboard",
+        status_code=status.HTTP_302_FOUND,
+    )
+    response.set_cookie(
+        key="flash_created_user",
+        value=user.username,
+        httponly=True,
+        max_age=60,
+        samesite="lax",
+        secure=True,
+    )
+    response.set_cookie(
+        key="flash_created_password",
+        value=new_password,
+        httponly=True,
+        max_age=60,
+        samesite="lax",
+        secure=True,
+    )
+    response.set_cookie(
+        key="flash_is_reset",
+        value="true",
+        httponly=True,
+        max_age=60,
+        samesite="lax",
+        secure=True,
+    )
+    return response
+
+
+@router.post("/admin/users/{user_id}/delete")
+async def delete_user(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent self-deletion
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+
+    username = user.username
+    db.delete(user)
+    db.commit()
+
+    response = RedirectResponse(
+        url="/admin/dashboard",
+        status_code=status.HTTP_302_FOUND,
+    )
+    response.set_cookie(
+        key="flash_deleted_user",
+        value=username,
         httponly=True,
         max_age=60,
         samesite="lax",

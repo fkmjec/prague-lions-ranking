@@ -1,12 +1,15 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from datetime import datetime
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Query
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from prague_lions_ranking.database import get_db
-from prague_lions_ranking.models import User, UserRole
+from prague_lions_ranking.models import User, UserRole, Match, MatchPlayer, Team
 from prague_lions_ranking.auth import (
     authenticate_user,
     create_access_token,
@@ -246,3 +249,137 @@ async def logout():
     response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     response.delete_cookie("access_token")
     return response
+
+
+# Match management routes
+
+@router.get("/admin/matches", response_class=HTMLResponse)
+async def match_list(
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    matches = db.query(Match).order_by(Match.date.desc()).all()
+    return templates.TemplateResponse(
+        "match_list.html",
+        {"request": request, "admin": admin, "matches": matches},
+    )
+
+
+@router.get("/admin/matches/new", response_class=HTMLResponse)
+async def match_form(
+    request: Request,
+    prefill_date: str = Query(None),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    return templates.TemplateResponse(
+        "match_form.html",
+        {"request": request, "admin": admin, "prefill_date": prefill_date},
+    )
+
+
+@router.post("/admin/matches")
+async def create_match(
+    request: Request,
+    match_date: str = Form(...),
+    notes: str = Form(""),
+    team_a_players: str = Form(...),
+    team_b_players: str = Form(...),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        date = datetime.fromisoformat(match_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    team_a_ids = json.loads(team_a_players) if team_a_players else []
+    team_b_ids = json.loads(team_b_players) if team_b_players else []
+
+    if not team_a_ids or not team_b_ids:
+        raise HTTPException(status_code=400, detail="Both teams must have at least one player")
+
+    match = Match(date=date, notes=notes if notes else None)
+    db.add(match)
+    db.flush()
+
+    for user_id in team_a_ids:
+        mp = MatchPlayer(match_id=match.id, user_id=user_id, team=Team.TEAM_A)
+        db.add(mp)
+
+    for user_id in team_b_ids:
+        mp = MatchPlayer(match_id=match.id, user_id=user_id, team=Team.TEAM_B)
+        db.add(mp)
+
+    db.commit()
+
+    return RedirectResponse(url="/admin/matches", status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/admin/matches/{match_id}", response_class=HTMLResponse)
+async def match_detail(
+    request: Request,
+    match_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    return templates.TemplateResponse(
+        "match_detail.html",
+        {"request": request, "admin": admin, "match": match},
+    )
+
+
+@router.post("/admin/matches/{match_id}/score")
+async def update_match_score(
+    match_id: int,
+    score_team_a: int = Form(...),
+    score_team_b: int = Form(...),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    match.score_team_a = score_team_a
+    match.score_team_b = score_team_b
+    db.commit()
+
+    return RedirectResponse(url="/admin/matches", status_code=status.HTTP_302_FOUND)
+
+
+@router.post("/admin/matches/{match_id}/delete")
+async def delete_match(
+    match_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    db.delete(match)
+    db.commit()
+
+    return RedirectResponse(url="/admin/matches", status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/api/users/search")
+async def search_users(
+    q: str = Query("", min_length=0),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    if not q:
+        users = db.query(User).limit(20).all()
+    else:
+        users = db.query(User).filter(User.username.ilike(f"%{q}%")).limit(20).all()
+
+    return JSONResponse(
+        content=[{"id": u.id, "username": u.username} for u in users]
+    )

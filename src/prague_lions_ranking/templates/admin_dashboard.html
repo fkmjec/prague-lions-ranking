@@ -173,6 +173,21 @@
         .btn-delete:hover {
             background: #c82333;
         }
+        .nav-link {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 0.5rem;
+        }
+        .nav-link:hover {
+            background: #0056b3;
+        }
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
     </style>
 </head>
 <body>
@@ -203,6 +218,10 @@
         {% if error %}
         <div class="error">{{ error }}</div>
         {% endif %}
+
+        <div class="nav-section">
+            <a href="/admin/matches" class="nav-link">Manage Matches</a>
+        </div>
 
         <div class="card">
             <h2>Create New User</h2>

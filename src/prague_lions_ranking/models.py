@@ -1,7 +1,8 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text
+from sqlalchemy.orm import relationship
 
 from prague_lions_ranking.database import Base
 
@@ -9,6 +10,11 @@ from prague_lions_ranking.database import Base
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
     USER = "user"
+
+
+class Team(str, enum.Enum):
+    TEAM_A = "team_a"
+    TEAM_B = "team_b"
 
 
 class User(Base):
@@ -19,3 +25,42 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.USER, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    match_participations = relationship("MatchPlayer", back_populates="user")
+
+
+class Match(Base):
+    __tablename__ = "matches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(DateTime, nullable=False)
+    notes = Column(Text, nullable=True)
+    score_team_a = Column(Integer, nullable=True)
+    score_team_b = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    players = relationship("MatchPlayer", back_populates="match", cascade="all, delete-orphan")
+
+    @property
+    def team_a_players(self):
+        return [mp.user for mp in self.players if mp.team == Team.TEAM_A]
+
+    @property
+    def team_b_players(self):
+        return [mp.user for mp in self.players if mp.team == Team.TEAM_B]
+
+    @property
+    def has_score(self):
+        return self.score_team_a is not None and self.score_team_b is not None
+
+
+class MatchPlayer(Base):
+    __tablename__ = "match_players"
+
+    id = Column(Integer, primary_key=True, index=True)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    team = Column(Enum(Team), nullable=False)
+
+    match = relationship("Match", back_populates="players")
+    user = relationship("User", back_populates="match_participations")

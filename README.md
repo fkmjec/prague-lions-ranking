@@ -39,5 +39,9 @@ src/prague_lions_ranking/
 ├── auth.py          # Authentication utilities
 ├── routers/         # API route handlers
 ├── scripts/         # CLI scripts
+├── static/          # Static assets (CSS, JS)
+│   ├── styles.css   # Main stylesheet
+│   └── scripts.js   # JavaScript functionality
 └── templates/       # Jinja2 HTML templates
+    └── base.html    # Base template with common structure
 ```

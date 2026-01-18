@@ -59,6 +59,11 @@ body {
     border-radius: 4px;
 }
 
+.header-btn.btn-primary {
+    background: rgba(255, 255, 255, 0.2);
+    font-weight: 600;
+}
+
 /* Card
    ========================================================================== */
 .card {

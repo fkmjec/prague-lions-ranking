@@ -6,7 +6,7 @@
     <div class="header">
         <h1>Matches</h1>
         <div class="header-actions">
-            <a href="/admin/dashboard" class="header-btn btn-back">Dashboard</a>
+            <a href="/dashboard" class="header-btn">Team</a>
             <a href="/logout" class="header-btn logout-btn">Logout</a>
         </div>
     </div>
@@ -17,13 +17,12 @@
         <div class="card">
             <div class="card-header">
                 <h2>Match History</h2>
-                <a href="/admin/matches/new" class="btn-new">+ Add Match</a>
             </div>
 
             <div class="timeline">
                 {% if matches %}
                     {% for match in matches %}
-                    {% if loop.first %}
+                    {% if is_admin and loop.first %}
                     <a href="/admin/matches/new?prefill_date={{ match.date.strftime('%Y-%m-%dT%H:%M') }}" class="insert-btn">+ Insert match here</a>
                     {% endif %}
 
@@ -45,34 +44,40 @@
                             </div>
                             {% if match.has_score %}
                             <div class="match-score">{{ match.score_team_a }} : {{ match.score_team_b }}</div>
-                            {% else %}
+                            {% elif is_admin %}
                             <form class="score-form-inline" method="POST" action="/admin/matches/{{ match.id }}/score">
                                 <input type="number" name="score_team_a" min="0" required placeholder="0">
                                 <span>:</span>
                                 <input type="number" name="score_team_b" min="0" required placeholder="0">
                                 <button type="submit">Save</button>
                             </form>
+                            {% else %}
+                            <div class="match-score match-score--pending">Pending</div>
                             {% endif %}
                         </div>
                         {% if match.notes %}
                         <div class="match-notes">{{ match.notes }}</div>
                         {% endif %}
                         <div class="match-actions">
-                            <a href="/admin/matches/{{ match.id }}" class="btn-view">View/Edit</a>
+                            <a href="/matches/{{ match.id }}" class="btn-view">View{% if is_admin %}/Edit{% endif %}</a>
                         </div>
                     </div>
 
-                    {% if not loop.last %}
-                    {% set next_match = matches[loop.index] %}
-                    <a href="/admin/matches/new?prefill_date={{ next_match.date.strftime('%Y-%m-%dT%H:%M') }}" class="insert-btn">+ Insert match here</a>
-                    {% else %}
-                    <a href="/admin/matches/new" class="insert-btn">+ Insert match here</a>
+                    {% if is_admin %}
+                        {% if not loop.last %}
+                        {% set next_match = matches[loop.index] %}
+                        <a href="/admin/matches/new?prefill_date={{ next_match.date.strftime('%Y-%m-%dT%H:%M') }}" class="insert-btn">+ Insert match here</a>
+                        {% else %}
+                        <a href="/admin/matches/new" class="insert-btn">+ Insert match here</a>
+                        {% endif %}
                     {% endif %}
                     {% endfor %}
                 {% else %}
                 <div class="empty-state">
                     <p>No matches yet.</p>
+                    {% if is_admin %}
                     <a href="/admin/matches/new" class="btn-new">Create your first match</a>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>

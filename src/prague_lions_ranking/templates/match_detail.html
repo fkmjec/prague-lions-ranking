@@ -6,7 +6,7 @@
     <div class="header">
         <h1>Match Details</h1>
         <div class="header-actions">
-            <a href="/admin/matches" class="header-btn btn-back">Back to Matches</a>
+            <a href="/matches" class="header-btn btn-back">Back to Matches</a>
         </div>
     </div>
 {% endblock %}
@@ -57,6 +57,7 @@
                 </div>
             </div>
 
+            {% if is_admin %}
             <div class="score-form">
                 <h3>{% if match.has_score %}Update{% else %}Set{% endif %} Score</h3>
                 <form method="POST" action="/admin/matches/{{ match.id }}/score">
@@ -78,8 +79,10 @@
                     </div>
                 </form>
             </div>
+            {% endif %}
         </div>
 
+        {% if is_admin %}
         <div class="card danger-zone">
             <h2>Danger Zone</h2>
             <p style="margin-bottom: 1rem;">Deleting this match will permanently remove it and all associated data.</p>
@@ -90,5 +93,6 @@
                 </button>
             </form>
         </div>
+        {% endif %}
     </div>
 {% endblock %}

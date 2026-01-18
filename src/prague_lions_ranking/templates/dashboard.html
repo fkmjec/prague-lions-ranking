@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Team - Prague Lions Ranking{% endblock %}
+
+{% block header %}
+    <div class="header">
+        <h1>Team</h1>
+        <div class="header-actions">
+            <a href="/matches" class="header-btn btn-primary">Matches</a>
+            <a href="/logout" class="header-btn logout-btn">Logout</a>
+        </div>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+        {% if is_admin %}
+            {% if created_user and created_password %}
+            <div class="success">
+                {% if is_reset %}
+                <strong>Password reset for "{{ created_user }}"!</strong>
+                {% else %}
+                <strong>User "{{ created_user }}" created successfully!</strong>
+                {% endif %}
+                <div>Password: <span class="password-display">{{ created_password }}</span></div>
+                <small>Please save this password - it will not be shown again.</small>
+            </div>
+            {% endif %}
+
+            {% if deleted_user %}
+            <div class="success">
+                <strong>User "{{ deleted_user }}" has been deleted.</strong>
+            </div>
+            {% endif %}
+
+            {% if error %}
+            <div class="error">{{ error }}</div>
+            {% endif %}
+
+            <div class="card">
+                <h2>Create New User</h2>
+                <form method="POST" action="/admin/users">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="role">Role</label>
+                            <select id="role" name="role">
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <button type="submit">Create User</button>
+                    </div>
+                </form>
+            </div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Users</h2>
+            {% if users %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Joined</th>
+                        {% if is_admin %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{ u.username }}</td>
+                        <td>
+                            <span class="role-badge role-{{ u.role.value }}">
+                                {{ u.role.value }}
+                            </span>
+                        </td>
+                        <td>{{ u.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        {% if is_admin %}
+                        <td class="actions">
+                            <form method="POST" action="/admin/users/{{ u.id }}/reset-password" style="display:inline;">
+                                <button type="submit" class="btn-reset" onclick="return confirm('Reset password for {{ u.username }}?')">Reset Password</button>
+                            </form>
+                            {% if u.id != user.id %}
+                            <form method="POST" action="/admin/users/{{ u.id }}/delete" style="display:inline;">
+                                <button type="submit" class="btn-delete" onclick="return confirm('Delete user {{ u.username }}? This cannot be undone.')">Delete</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No users yet.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

@@ -1,6 +1,4 @@
 from datetime import timedelta
-
-from datetime import datetime
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Query
@@ -16,6 +14,7 @@ from prague_lions_ranking.auth import (
     get_password_hash,
     generate_password,
     require_admin,
+    require_login,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 
@@ -45,19 +44,12 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
-    if user.role != UserRole.ADMIN:
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Admin access required"},
-            status_code=status.HTTP_403_FORBIDDEN,
-        )
-
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    response = RedirectResponse(url="/admin/dashboard", status_code=status.HTTP_302_FOUND)
+    response = RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -69,25 +61,36 @@ async def login(
     return response
 
 
-@router.get("/admin/dashboard", response_class=HTMLResponse)
-async def admin_dashboard(
+@router.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    response.delete_cookie("access_token")
+    return response
+
+
+# Unified views (accessible by all logged-in users, edit controls shown only to admins)
+
+@router.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(
     request: Request,
-    admin: User = Depends(require_admin),
+    user: User = Depends(require_login),
     db: Session = Depends(get_db),
 ):
     users = db.query(User).all()
+    is_admin = user.role == UserRole.ADMIN
 
-    # Get flash message from cookie (one-time display)
-    created_user = request.cookies.get("flash_created_user")
-    created_password = request.cookies.get("flash_created_password")
-    is_reset = request.cookies.get("flash_is_reset")
-    deleted_user = request.cookies.get("flash_deleted_user")
+    # Get flash message from cookie (one-time display) - only relevant for admins
+    created_user = request.cookies.get("flash_created_user") if is_admin else None
+    created_password = request.cookies.get("flash_created_password") if is_admin else None
+    is_reset = request.cookies.get("flash_is_reset") if is_admin else None
+    deleted_user = request.cookies.get("flash_deleted_user") if is_admin else None
 
     response = templates.TemplateResponse(
-        "admin_dashboard.html",
+        "dashboard.html",
         {
             "request": request,
-            "admin": admin,
+            "user": user,
+            "is_admin": is_admin,
             "users": users,
             "created_user": created_user,
             "created_password": created_password,
@@ -109,6 +112,40 @@ async def admin_dashboard(
     return response
 
 
+@router.get("/matches", response_class=HTMLResponse)
+async def match_list(
+    request: Request,
+    user: User = Depends(require_login),
+    db: Session = Depends(get_db),
+):
+    matches = db.query(Match).order_by(Match.ordering.desc()).all()
+    is_admin = user.role == UserRole.ADMIN
+    return templates.TemplateResponse(
+        "match_list.html",
+        {"request": request, "user": user, "is_admin": is_admin, "matches": matches},
+    )
+
+
+@router.get("/matches/{match_id}", response_class=HTMLResponse)
+async def match_detail(
+    request: Request,
+    match_id: int,
+    user: User = Depends(require_login),
+    db: Session = Depends(get_db),
+):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    is_admin = user.role == UserRole.ADMIN
+    return templates.TemplateResponse(
+        "match_detail.html",
+        {"request": request, "user": user, "is_admin": is_admin, "match": match},
+    )
+
+
+# Admin-only actions (POST routes that modify data)
+
 @router.post("/admin/users")
 async def create_user(
     request: Request,
@@ -121,10 +158,11 @@ async def create_user(
     if existing_user:
         users = db.query(User).all()
         return templates.TemplateResponse(
-            "admin_dashboard.html",
+            "dashboard.html",
             {
                 "request": request,
-                "admin": admin,
+                "user": admin,
+                "is_admin": True,
                 "users": users,
                 "error": f"User '{username}' already exists",
             },
@@ -143,10 +181,9 @@ async def create_user(
     db.commit()
 
     response = RedirectResponse(
-        url="/admin/dashboard",
+        url="/dashboard",
         status_code=status.HTTP_302_FOUND,
     )
-    # Use secure httponly cookies for flash messages (not logged in browser history)
     response.set_cookie(
         key="flash_created_user",
         value=username,
@@ -181,7 +218,7 @@ async def reset_user_password(
     db.commit()
 
     response = RedirectResponse(
-        url="/admin/dashboard",
+        url="/dashboard",
         status_code=status.HTTP_302_FOUND,
     )
     response.set_cookie(
@@ -230,7 +267,7 @@ async def delete_user(
     db.commit()
 
     response = RedirectResponse(
-        url="/admin/dashboard",
+        url="/dashboard",
         status_code=status.HTTP_302_FOUND,
     )
     response.set_cookie(
@@ -244,38 +281,39 @@ async def delete_user(
     return response
 
 
-@router.get("/logout")
-async def logout():
-    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    response.delete_cookie("access_token")
-    return response
-
-
-# Match management routes
-
-@router.get("/admin/matches", response_class=HTMLResponse)
-async def match_list(
-    request: Request,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    matches = db.query(Match).order_by(Match.date.desc()).all()
-    return templates.TemplateResponse(
-        "match_list.html",
-        {"request": request, "admin": admin, "matches": matches},
-    )
-
-
 @router.get("/admin/matches/new", response_class=HTMLResponse)
 async def match_form(
     request: Request,
-    prefill_date: str = Query(None),
+    insert_before: int = Query(None),
+    insert_after: int = Query(None),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    # Determine prefill_date from neighbouring matches
+    prefill_date = None
+    if insert_before:
+        before_match = db.query(Match).filter(Match.id == insert_before).first()
+        if before_match:
+            prefill_date = before_match.date.strftime("%Y-%m-%d")
+    elif insert_after:
+        after_match = db.query(Match).filter(Match.id == insert_after).first()
+        if after_match:
+            prefill_date = after_match.date.strftime("%Y-%m-%d")
+
+    if not prefill_date:
+        from datetime import date
+        prefill_date = date.today().strftime("%Y-%m-%d")
+
     return templates.TemplateResponse(
         "match_form.html",
-        {"request": request, "admin": admin, "prefill_date": prefill_date},
+        {
+            "request": request,
+            "user": admin,
+            "is_admin": True,
+            "prefill_date": prefill_date,
+            "insert_before": insert_before,
+            "insert_after": insert_after,
+        },
     )
 
 
@@ -286,11 +324,14 @@ async def create_match(
     notes: str = Form(""),
     team_a_players: str = Form(...),
     team_b_players: str = Form(...),
+    insert_before: int = Form(None),
+    insert_after: int = Form(None),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    from datetime import date as date_type
     try:
-        date = datetime.fromisoformat(match_date)
+        match_date_parsed = date_type.fromisoformat(match_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
@@ -300,7 +341,8 @@ async def create_match(
     if not team_a_ids or not team_b_ids:
         raise HTTPException(status_code=400, detail="Both teams must have at least one player")
 
-    match = Match(date=date, notes=notes if notes else None)
+    # Create the match with temporary ordering (will be fixed below)
+    match = Match(date=match_date_parsed, ordering=0, notes=notes if notes else None)
     db.add(match)
     db.flush()
 
@@ -312,26 +354,34 @@ async def create_match(
         mp = MatchPlayer(match_id=match.id, user_id=user_id, team=Team.TEAM_B)
         db.add(mp)
 
+    # Now renumber all matches from 1 to n
+    # Build the desired order: get existing matches, insert new one at correct position
+    existing_matches = db.query(Match).filter(Match.id != match.id).order_by(Match.ordering.desc()).all()
+
+    # Determine where to insert the new match
+    if insert_before and insert_after:
+        # Insert between: find position of insert_before and insert after it
+        insert_pos = next((i + 1 for i, m in enumerate(existing_matches) if m.id == insert_before), 0)
+    elif insert_before:
+        # Insert after insert_before (at the end, oldest position)
+        insert_pos = next((i + 1 for i, m in enumerate(existing_matches) if m.id == insert_before), len(existing_matches))
+    elif insert_after:
+        # Insert before insert_after (at the top, newest position)
+        insert_pos = next((i for i, m in enumerate(existing_matches) if m.id == insert_after), 0)
+    else:
+        # No context - insert at position 0 (top/newest)
+        insert_pos = 0
+
+    # Build the new ordered list
+    ordered_matches = existing_matches[:insert_pos] + [match] + existing_matches[insert_pos:]
+
+    # Assign ordering from n down to 1 (highest = newest)
+    for i, m in enumerate(ordered_matches):
+        m.ordering = len(ordered_matches) - i
+
     db.commit()
 
-    return RedirectResponse(url="/admin/matches", status_code=status.HTTP_302_FOUND)
-
-
-@router.get("/admin/matches/{match_id}", response_class=HTMLResponse)
-async def match_detail(
-    request: Request,
-    match_id: int,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    match = db.query(Match).filter(Match.id == match_id).first()
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-
-    return templates.TemplateResponse(
-        "match_detail.html",
-        {"request": request, "admin": admin, "match": match},
-    )
+    return RedirectResponse(url="/matches", status_code=status.HTTP_302_FOUND)
 
 
 @router.post("/admin/matches/{match_id}/score")
@@ -350,7 +400,7 @@ async def update_match_score(
     match.score_team_b = score_team_b
     db.commit()
 
-    return RedirectResponse(url="/admin/matches", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url="/matches", status_code=status.HTTP_302_FOUND)
 
 
 @router.post("/admin/matches/{match_id}/delete")
@@ -366,13 +416,13 @@ async def delete_match(
     db.delete(match)
     db.commit()
 
-    return RedirectResponse(url="/admin/matches", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url="/matches", status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/api/users/search")
 async def search_users(
     q: str = Query("", min_length=0),
-    admin: User = Depends(require_admin),
+    user: User = Depends(require_login),
     db: Session = Depends(get_db),
 ):
     if not q:

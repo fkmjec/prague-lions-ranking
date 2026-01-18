@@ -91,3 +91,8 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
             detail="Admin access required",
         )
     return current_user
+
+
+async def require_login(current_user: User = Depends(get_current_user)) -> User:
+    """Dependency that requires any logged-in user (admin or regular)."""
+    return current_user

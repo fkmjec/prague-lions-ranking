@@ -6,7 +6,7 @@
     <div class="header">
         <h1>New Match</h1>
         <div class="header-actions">
-            <a href="/admin/matches" class="header-btn btn-back">Back to Matches</a>
+            <a href="/matches" class="header-btn btn-back">Back to Matches</a>
         </div>
     </div>
 {% endblock %}
@@ -18,8 +18,8 @@
 
             <form id="matchForm" method="POST" action="/admin/matches">
                 <div class="form-group form-group--large">
-                    <label for="match_date">Match Date & Time</label>
-                    <input type="datetime-local" id="match_date" name="match_date" required
+                    <label for="match_date">Match Date</label>
+                    <input type="date" id="match_date" name="match_date" required
                            value="{{ prefill_date or '' }}">
                 </div>
 
@@ -54,10 +54,12 @@
 
                 <input type="hidden" id="team_a_players" name="team_a_players" value="[]">
                 <input type="hidden" id="team_b_players" name="team_b_players" value="[]">
+                {% if insert_before %}<input type="hidden" name="insert_before" value="{{ insert_before }}">{% endif %}
+                {% if insert_after %}<input type="hidden" name="insert_after" value="{{ insert_after }}">{% endif %}
 
                 <div class="form-actions">
                     <button type="submit">Create Match</button>
-                    <a href="/admin/matches" class="btn-cancel">Cancel</a>
+                    <a href="/matches" class="btn-cancel">Cancel</a>
                 </div>
             </form>
         </div>

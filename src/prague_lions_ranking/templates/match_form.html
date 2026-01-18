@@ -1,232 +1,29 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Match - Prague Lions Ranking</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-        }
-        .header {
-            background: #333;
-            color: white;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header h1 {
-            font-size: 1.25rem;
-        }
-        .header-actions {
-            display: flex;
-            gap: 1rem;
-        }
-        .header-btn {
-            color: white;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-        }
-        .btn-back {
-            background: #6c757d;
-        }
-        .btn-back:hover {
-            background: #5a6268;
-        }
-        .container {
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-        .card {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        .card h2 {
-            margin-bottom: 1rem;
-            color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 0.5rem;
-        }
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #555;
-        }
-        input[type="text"],
-        input[type="datetime-local"],
-        textarea {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-        .teams-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-        }
-        .team-section {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 1rem;
-        }
-        .team-section h3 {
-            margin-bottom: 1rem;
-            color: #333;
-        }
-        .team-section.team-a {
-            border-left: 4px solid #007bff;
-        }
-        .team-section.team-b {
-            border-left: 4px solid #dc3545;
-        }
-        .player-search {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-        .player-search input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 4px 4px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 100;
-            display: none;
-        }
-        .search-results.show {
-            display: block;
-        }
-        .search-result-item {
-            padding: 0.5rem;
-            cursor: pointer;
-            border-bottom: 1px solid #eee;
-        }
-        .search-result-item:hover {
-            background: #f0f0f0;
-        }
-        .search-result-item:last-child {
-            border-bottom: none;
-        }
-        .selected-players {
-            min-height: 50px;
-        }
-        .player-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: #e9ecef;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            margin: 0.25rem;
-            font-size: 0.9rem;
-        }
-        .player-tag .remove-btn {
-            background: none;
-            border: none;
-            color: #dc3545;
-            cursor: pointer;
-            font-size: 1rem;
-            line-height: 1;
-            padding: 0;
-        }
-        .player-tag .remove-btn:hover {
-            color: #a71d2a;
-        }
-        .no-players {
-            color: #999;
-            font-style: italic;
-            padding: 0.5rem 0;
-        }
-        .form-actions {
-            margin-top: 2rem;
-            display: flex;
-            gap: 1rem;
-        }
-        button[type="submit"] {
-            padding: 0.75rem 2rem;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 1rem;
-            cursor: pointer;
-        }
-        button[type="submit"]:hover {
-            background: #218838;
-        }
-        .btn-cancel {
-            padding: 0.75rem 2rem;
-            background: #6c757d;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-        .btn-cancel:hover {
-            background: #5a6268;
-        }
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 1rem;
-            border-radius: 4px;
-            margin-bottom: 1rem;
-        }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
+
+{% block title %}New Match - Prague Lions Ranking{% endblock %}
+
+{% block header %}
     <div class="header">
         <h1>New Match</h1>
         <div class="header-actions">
             <a href="/admin/matches" class="header-btn btn-back">Back to Matches</a>
         </div>
     </div>
+{% endblock %}
 
+{% block content %}
     <div class="container">
         <div class="card">
             <h2>Create Match</h2>
 
             <form id="matchForm" method="POST" action="/admin/matches">
-                <div class="form-group">
+                <div class="form-group form-group--large">
                     <label for="match_date">Match Date & Time</label>
                     <input type="datetime-local" id="match_date" name="match_date" required
                            value="{{ prefill_date or '' }}">
                 </div>
 
-                <div class="form-group">
+                <div class="form-group form-group--large">
                     <label for="notes">Notes (optional)</label>
                     <textarea id="notes" name="notes" placeholder="Any notes about this match..."></textarea>
                 </div>
@@ -265,118 +62,8 @@
             </form>
         </div>
     </div>
+{% endblock %}
 
-    <script>
-        const teamAPlayers = [];
-        const teamBPlayers = [];
-
-        function setupSearch(searchInputId, resultsId, playersContainerId, hiddenInputId, playersArray, otherPlayersArray) {
-            const searchInput = document.getElementById(searchInputId);
-            const resultsDiv = document.getElementById(resultsId);
-            const playersContainer = document.getElementById(playersContainerId);
-            const hiddenInput = document.getElementById(hiddenInputId);
-
-            let debounceTimer;
-
-            searchInput.addEventListener('input', function() {
-                clearTimeout(debounceTimer);
-                const query = this.value.trim();
-
-                debounceTimer = setTimeout(async () => {
-                    if (query.length === 0) {
-                        // Show all users when empty
-                        const response = await fetch('/api/users/search?q=');
-                        const users = await response.json();
-                        showResults(users);
-                    } else {
-                        const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
-                        const users = await response.json();
-                        showResults(users);
-                    }
-                }, 200);
-            });
-
-            searchInput.addEventListener('focus', async function() {
-                if (this.value.trim() === '') {
-                    const response = await fetch('/api/users/search?q=');
-                    const users = await response.json();
-                    showResults(users);
-                }
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
-                    resultsDiv.classList.remove('show');
-                }
-            });
-
-            function showResults(users) {
-                resultsDiv.innerHTML = '';
-                const selectedIds = [...playersArray.map(p => p.id), ...otherPlayersArray.map(p => p.id)];
-                const availableUsers = users.filter(u => !selectedIds.includes(u.id));
-
-                if (availableUsers.length === 0) {
-                    resultsDiv.innerHTML = '<div class="search-result-item" style="color: #999;">No players available</div>';
-                } else {
-                    availableUsers.forEach(user => {
-                        const div = document.createElement('div');
-                        div.className = 'search-result-item';
-                        div.textContent = user.username;
-                        div.addEventListener('click', () => {
-                            addPlayer(user);
-                            resultsDiv.classList.remove('show');
-                            searchInput.value = '';
-                        });
-                        resultsDiv.appendChild(div);
-                    });
-                }
-                resultsDiv.classList.add('show');
-            }
-
-            function addPlayer(user) {
-                playersArray.push(user);
-                updateDisplay();
-            }
-
-            function removePlayer(userId) {
-                const index = playersArray.findIndex(p => p.id === userId);
-                if (index > -1) {
-                    playersArray.splice(index, 1);
-                    updateDisplay();
-                }
-            }
-
-            function updateDisplay() {
-                hiddenInput.value = JSON.stringify(playersArray.map(p => p.id));
-
-                if (playersArray.length === 0) {
-                    playersContainer.innerHTML = '<span class="no-players">No players selected</span>';
-                } else {
-                    playersContainer.innerHTML = playersArray.map(player => `
-                        <span class="player-tag">
-                            ${player.username}
-                            <button type="button" class="remove-btn" data-id="${player.id}">&times;</button>
-                        </span>
-                    `).join('');
-
-                    playersContainer.querySelectorAll('.remove-btn').forEach(btn => {
-                        btn.addEventListener('click', () => {
-                            removePlayer(parseInt(btn.dataset.id));
-                        });
-                    });
-                }
-            }
-        }
-
-        setupSearch('searchTeamA', 'resultsTeamA', 'playersTeamA', 'team_a_players', teamAPlayers, teamBPlayers);
-        setupSearch('searchTeamB', 'resultsTeamB', 'playersTeamB', 'team_b_players', teamBPlayers, teamAPlayers);
-
-        document.getElementById('matchForm').addEventListener('submit', function(e) {
-            if (teamAPlayers.length === 0 || teamBPlayers.length === 0) {
-                e.preventDefault();
-                alert('Both teams must have at least one player.');
-            }
-        });
-    </script>
-</body>
-</html>
+{% block scripts %}
+    <script src="/static/scripts.js"></script>
+{% endblock %}

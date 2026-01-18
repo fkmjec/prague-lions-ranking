@@ -1,6 +1,4 @@
 from datetime import timedelta
-
-from datetime import datetime
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Query
@@ -120,7 +118,7 @@ async def match_list(
     user: User = Depends(require_login),
     db: Session = Depends(get_db),
 ):
-    matches = db.query(Match).order_by(Match.date.desc()).all()
+    matches = db.query(Match).order_by(Match.ordering.desc()).all()
     is_admin = user.role == UserRole.ADMIN
     return templates.TemplateResponse(
         "match_list.html",
@@ -286,13 +284,36 @@ async def delete_user(
 @router.get("/admin/matches/new", response_class=HTMLResponse)
 async def match_form(
     request: Request,
-    prefill_date: str = Query(None),
+    insert_before: int = Query(None),
+    insert_after: int = Query(None),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    # Determine prefill_date from neighbouring matches
+    prefill_date = None
+    if insert_before:
+        before_match = db.query(Match).filter(Match.id == insert_before).first()
+        if before_match:
+            prefill_date = before_match.date.strftime("%Y-%m-%d")
+    elif insert_after:
+        after_match = db.query(Match).filter(Match.id == insert_after).first()
+        if after_match:
+            prefill_date = after_match.date.strftime("%Y-%m-%d")
+
+    if not prefill_date:
+        from datetime import date
+        prefill_date = date.today().strftime("%Y-%m-%d")
+
     return templates.TemplateResponse(
         "match_form.html",
-        {"request": request, "user": admin, "is_admin": True, "prefill_date": prefill_date},
+        {
+            "request": request,
+            "user": admin,
+            "is_admin": True,
+            "prefill_date": prefill_date,
+            "insert_before": insert_before,
+            "insert_after": insert_after,
+        },
     )
 
 
@@ -303,11 +324,14 @@ async def create_match(
     notes: str = Form(""),
     team_a_players: str = Form(...),
     team_b_players: str = Form(...),
+    insert_before: int = Form(None),
+    insert_after: int = Form(None),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    from datetime import date as date_type
     try:
-        date = datetime.fromisoformat(match_date)
+        match_date_parsed = date_type.fromisoformat(match_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
@@ -317,7 +341,8 @@ async def create_match(
     if not team_a_ids or not team_b_ids:
         raise HTTPException(status_code=400, detail="Both teams must have at least one player")
 
-    match = Match(date=date, notes=notes if notes else None)
+    # Create the match with temporary ordering (will be fixed below)
+    match = Match(date=match_date_parsed, ordering=0, notes=notes if notes else None)
     db.add(match)
     db.flush()
 
@@ -328,6 +353,31 @@ async def create_match(
     for user_id in team_b_ids:
         mp = MatchPlayer(match_id=match.id, user_id=user_id, team=Team.TEAM_B)
         db.add(mp)
+
+    # Now renumber all matches from 1 to n
+    # Build the desired order: get existing matches, insert new one at correct position
+    existing_matches = db.query(Match).filter(Match.id != match.id).order_by(Match.ordering.desc()).all()
+
+    # Determine where to insert the new match
+    if insert_before and insert_after:
+        # Insert between: find position of insert_before and insert after it
+        insert_pos = next((i + 1 for i, m in enumerate(existing_matches) if m.id == insert_before), 0)
+    elif insert_before:
+        # Insert after insert_before (at the end, oldest position)
+        insert_pos = next((i + 1 for i, m in enumerate(existing_matches) if m.id == insert_before), len(existing_matches))
+    elif insert_after:
+        # Insert before insert_after (at the top, newest position)
+        insert_pos = next((i for i, m in enumerate(existing_matches) if m.id == insert_after), 0)
+    else:
+        # No context - insert at position 0 (top/newest)
+        insert_pos = 0
+
+    # Build the new ordered list
+    ordered_matches = existing_matches[:insert_pos] + [match] + existing_matches[insert_pos:]
+
+    # Assign ordering from n down to 1 (highest = newest)
+    for i, m in enumerate(ordered_matches):
+        m.ordering = len(ordered_matches) - i
 
     db.commit()
 

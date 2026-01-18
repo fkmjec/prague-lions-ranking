@@ -23,11 +23,11 @@
                 {% if matches %}
                     {% for match in matches %}
                     {% if is_admin and loop.first %}
-                    <a href="/admin/matches/new?prefill_date={{ match.date.strftime('%Y-%m-%dT%H:%M') }}" class="insert-btn">+ Insert match here</a>
+                    <a href="/admin/matches/new?insert_after={{ match.id }}" class="insert-btn">+ Insert match here</a>
                     {% endif %}
 
                     <div class="match-item {% if not match.has_score %}no-score{% endif %}">
-                        <div class="match-date">{{ match.date.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="match-date">{{ match.date.strftime('%Y-%m-%d') }}</div>
                         <div class="match-teams">
                             <div class="team">
                                 <div class="team-label">Team A</div>
@@ -66,9 +66,9 @@
                     {% if is_admin %}
                         {% if not loop.last %}
                         {% set next_match = matches[loop.index] %}
-                        <a href="/admin/matches/new?prefill_date={{ next_match.date.strftime('%Y-%m-%dT%H:%M') }}" class="insert-btn">+ Insert match here</a>
+                        <a href="/admin/matches/new?insert_before={{ match.id }}&insert_after={{ next_match.id }}" class="insert-btn">+ Insert match here</a>
                         {% else %}
-                        <a href="/admin/matches/new" class="insert-btn">+ Insert match here</a>
+                        <a href="/admin/matches/new?insert_before={{ match.id }}" class="insert-btn">+ Insert match here</a>
                         {% endif %}
                     {% endif %}
                     {% endfor %}

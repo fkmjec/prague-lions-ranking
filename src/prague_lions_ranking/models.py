@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text, Date
 from sqlalchemy.orm import relationship
 
 from prague_lions_ranking.database import Base
@@ -33,7 +33,8 @@ class Match(Base):
     __tablename__ = "matches"
 
     id = Column(Integer, primary_key=True, index=True)
-    date = Column(DateTime, nullable=False)
+    date = Column(Date, nullable=False)
+    ordering = Column(Integer, nullable=False, index=True)
     notes = Column(Text, nullable=True)
     score_team_a = Column(Integer, nullable=True)
     score_team_b = Column(Integer, nullable=True)

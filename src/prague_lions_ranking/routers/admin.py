@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from prague_lions_ranking.database import get_db
 from prague_lions_ranking.models import User, UserRole, Match, MatchPlayer, Team
+from prague_lions_ranking.rating import update_user_ratings
 from prague_lions_ranking.auth import (
     authenticate_user,
     create_access_token,
@@ -84,6 +85,7 @@ async def dashboard(
     created_password = request.cookies.get("flash_created_password") if is_admin else None
     is_reset = request.cookies.get("flash_is_reset") if is_admin else None
     deleted_user = request.cookies.get("flash_deleted_user") if is_admin else None
+    ratings_updated = request.cookies.get("flash_ratings_updated") if is_admin else None
 
     response = templates.TemplateResponse(
         "dashboard.html",
@@ -96,6 +98,7 @@ async def dashboard(
             "created_password": created_password,
             "is_reset": is_reset,
             "deleted_user": deleted_user,
+            "ratings_updated": ratings_updated,
         },
     )
 
@@ -108,6 +111,8 @@ async def dashboard(
         response.delete_cookie("flash_is_reset")
     if deleted_user:
         response.delete_cookie("flash_deleted_user")
+    if ratings_updated:
+        response.delete_cookie("flash_ratings_updated")
 
     return response
 
@@ -413,10 +418,59 @@ async def delete_match(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
+    # Explicitly delete MatchPlayer entries first to ensure cleanup
+    db.query(MatchPlayer).filter(MatchPlayer.match_id == match_id).delete()
     db.delete(match)
     db.commit()
 
     return RedirectResponse(url="/matches", status_code=status.HTTP_302_FOUND)
+
+
+@router.post("/admin/calculate-ratings")
+async def calculate_ratings(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    updated_count = update_user_ratings(db)
+
+    response = RedirectResponse(
+        url="/dashboard",
+        status_code=status.HTTP_302_FOUND,
+    )
+    response.set_cookie(
+        key="flash_ratings_updated",
+        value=str(updated_count),
+        httponly=True,
+        max_age=60,
+        samesite="lax",
+        secure=True,
+    )
+    return response
+
+
+@router.get("/admin/leaderboard", response_class=HTMLResponse)
+async def leaderboard(
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    # Get all users with ratings, ordered by true_skill descending
+    players = (
+        db.query(User)
+        .filter(User.true_skill.isnot(None))
+        .order_by(User.true_skill.desc())
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "leaderboard.html",
+        {
+            "request": request,
+            "user": admin,
+            "is_admin": True,
+            "players": players,
+        },
+    )
 
 
 @router.get("/api/users/search")

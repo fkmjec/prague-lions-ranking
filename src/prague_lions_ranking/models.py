@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text, Date
+from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text, Date, Float
 from sqlalchemy.orm import relationship
 
 from prague_lions_ranking.database import Base
@@ -25,6 +25,14 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.USER, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # TrueSkill rating fields
+    mu = Column(Float, nullable=True)  # TrueSkill mean rating
+    sigma = Column(Float, nullable=True)  # TrueSkill uncertainty/deviation
+    true_skill = Column(Float, nullable=True)  # Computed as mu - 3*sigma
+    number_of_practices = Column(Integer, nullable=True)  # Unique practice dates
+    number_of_games = Column(Integer, nullable=True)  # Total games played
+    ratings_updated_at = Column(DateTime, nullable=True)  # When ratings were last calculated
 
     match_participations = relationship("MatchPlayer", back_populates="user")
 

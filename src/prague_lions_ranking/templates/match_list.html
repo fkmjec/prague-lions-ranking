@@ -6,6 +6,7 @@
     <div class="header">
         <h1>Matches</h1>
         <div class="header-actions">
+            {% if is_admin %}<a href="/admin/leaderboard" class="header-btn btn-secondary">Leaderboard</a>{% endif %}
             <a href="/dashboard" class="header-btn">Team</a>
             <a href="/logout" class="header-btn logout-btn">Logout</a>
         </div>
@@ -17,15 +18,14 @@
         <div class="card">
             <div class="card-header">
                 <h2>Match History</h2>
+                {% if is_admin %}
+                <a href="/admin/matches/new" class="btn-new">+ New Match</a>
+                {% endif %}
             </div>
 
             <div class="timeline">
                 {% if matches %}
                     {% for match in matches %}
-                    {% if is_admin and loop.first %}
-                    <a href="/admin/matches/new?insert_after={{ match.id }}" class="insert-btn">+ Insert match here</a>
-                    {% endif %}
-
                     <div class="match-item {% if not match.has_score %}no-score{% endif %}">
                         <div class="match-date">{{ match.date.strftime('%Y-%m-%d') }}</div>
                         <div class="match-teams">
@@ -62,15 +62,6 @@
                             <a href="/matches/{{ match.id }}" class="btn-view">View{% if is_admin %}/Edit{% endif %}</a>
                         </div>
                     </div>
-
-                    {% if is_admin %}
-                        {% if not loop.last %}
-                        {% set next_match = matches[loop.index] %}
-                        <a href="/admin/matches/new?insert_before={{ match.id }}&insert_after={{ next_match.id }}" class="insert-btn">+ Insert match here</a>
-                        {% else %}
-                        <a href="/admin/matches/new?insert_before={{ match.id }}" class="insert-btn">+ Insert match here</a>
-                        {% endif %}
-                    {% endif %}
                     {% endfor %}
                 {% else %}
                 <div class="empty-state">

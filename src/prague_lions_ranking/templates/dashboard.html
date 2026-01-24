@@ -6,6 +6,7 @@
     <div class="header">
         <h1>Team</h1>
         <div class="header-actions">
+            {% if is_admin %}<a href="/admin/leaderboard" class="header-btn btn-secondary">Leaderboard</a>{% endif %}
             <a href="/matches" class="header-btn btn-primary">Matches</a>
             <a href="/logout" class="header-btn logout-btn">Logout</a>
         </div>
@@ -33,6 +34,13 @@
             </div>
             {% endif %}
 
+            {% if ratings_updated %}
+            <div class="success">
+                <strong>Ratings calculated successfully!</strong>
+                <div>Updated {{ ratings_updated }} player(s).</div>
+            </div>
+            {% endif %}
+
             {% if error %}
             <div class="error">{{ error }}</div>
             {% endif %}
@@ -54,6 +62,14 @@
                         </div>
                         <button type="submit">Create User</button>
                     </div>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>Rating Calculations</h2>
+                <p>Recalculate TrueSkill ratings for all players based on match results.</p>
+                <form method="POST" action="/admin/calculate-ratings">
+                    <button type="submit" onclick="return confirm('Recalculate all player ratings? This may take a moment.')">Calculate Ratings</button>
                 </form>
             </div>
         {% endif %}

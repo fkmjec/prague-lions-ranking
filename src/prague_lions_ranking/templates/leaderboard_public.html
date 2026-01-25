@@ -6,6 +6,7 @@
     <div class="header">
         <h1>Leaderboard</h1>
         <div class="header-actions">
+            {% if is_admin %}<a href="/admin/leaderboard" class="header-btn btn-secondary">Private</a>{% endif %}
             <a href="/dashboard" class="header-btn btn-secondary">Team</a>
             <a href="/matches" class="header-btn btn-primary">Matches</a>
             <a href="/logout" class="header-btn logout-btn">Logout</a>
@@ -16,8 +17,8 @@
 {% block content %}
     <div class="container">
         <div class="card">
-            <h2>Player Rankings</h2>
-            <p>Players ranked by TrueSkill rating (conservative estimate: mu - 3*sigma)</p>
+            <h2>Top 10 Players</h2>
+            <p>Players ranked by TrueSkill rating (minimum 3 practices required)</p>
             {% if players %}
             <table>
                 <thead>
@@ -25,9 +26,9 @@
                         <th>Rank</th>
                         <th>Player</th>
                         <th>TrueSkill</th>
-                        <th>Mu</th>
-                        <th>Sigma</th>
                         <th>Games</th>
+                        <th>Wins</th>
+                        <th>Draws</th>
                         <th>Practices</th>
                     </tr>
                 </thead>
@@ -37,16 +38,16 @@
                         <td>{{ loop.index }}</td>
                         <td>{{ player.username }}</td>
                         <td><strong>{{ "%.2f"|format(player.true_skill) }}</strong></td>
-                        <td>{{ "%.2f"|format(player.mu) }}</td>
-                        <td>{{ "%.2f"|format(player.sigma) }}</td>
                         <td>{{ player.number_of_games or 0 }}</td>
+                        <td>{{ player.number_of_wins or 0 }}</td>
+                        <td>{{ player.number_of_draws or 0 }}</td>
                         <td>{{ player.number_of_practices or 0 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
             {% else %}
-            <p>No ratings calculated yet. Click "Calculate Ratings" on the dashboard first.</p>
+            <p>No rankings available yet. Players need at least 2 practices to appear on the leaderboard.</p>
             {% endif %}
         </div>
     </div>

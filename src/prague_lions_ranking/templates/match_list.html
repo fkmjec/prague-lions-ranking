@@ -6,7 +6,8 @@
     <div class="header">
         <h1>Matches</h1>
         <div class="header-actions">
-            {% if is_admin %}<a href="/admin/leaderboard" class="header-btn btn-secondary">Leaderboard</a>{% endif %}
+            <a href="/leaderboard" class="header-btn btn-secondary">Leaderboard</a>
+            {% if is_admin %}<a href="/admin/leaderboard" class="header-btn btn-secondary">Private</a>{% endif %}
             <a href="/dashboard" class="header-btn">Team</a>
             <a href="/logout" class="header-btn logout-btn">Logout</a>
         </div>

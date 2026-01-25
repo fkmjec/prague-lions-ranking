@@ -448,13 +448,41 @@ async def calculate_ratings(
     return response
 
 
+@router.get("/leaderboard", response_class=HTMLResponse)
+async def public_leaderboard(
+    request: Request,
+    user: User = Depends(require_login),
+    db: Session = Depends(get_db),
+):
+    # Public leaderboard: top 10 players with at least 3 practices
+    players = (
+        db.query(User)
+        .filter(User.true_skill.isnot(None))
+        .filter(User.number_of_practices >= 3)
+        .order_by(User.true_skill.desc())
+        .limit(10)
+        .all()
+    )
+
+    is_admin = user.role == UserRole.ADMIN
+    return templates.TemplateResponse(
+        "leaderboard_public.html",
+        {
+            "request": request,
+            "user": user,
+            "is_admin": is_admin,
+            "players": players,
+        },
+    )
+
+
 @router.get("/admin/leaderboard", response_class=HTMLResponse)
-async def leaderboard(
+async def private_leaderboard(
     request: Request,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    # Get all users with ratings, ordered by true_skill descending
+    # Private leaderboard: all players with ratings
     players = (
         db.query(User)
         .filter(User.true_skill.isnot(None))
@@ -463,7 +491,7 @@ async def leaderboard(
     )
 
     return templates.TemplateResponse(
-        "leaderboard.html",
+        "leaderboard_private.html",
         {
             "request": request,
             "user": admin,

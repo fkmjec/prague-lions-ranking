@@ -28,6 +28,8 @@ def migrate():
         ("true_skill", "REAL"),
         ("number_of_practices", "INTEGER"),
         ("number_of_games", "INTEGER"),
+        ("number_of_wins", "INTEGER"),
+        ("number_of_draws", "INTEGER"),
         ("ratings_updated_at", "DATETIME"),
     ]
 

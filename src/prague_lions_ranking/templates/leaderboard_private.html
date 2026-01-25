@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Private Leaderboard - Prague Lions Ranking{% endblock %}
+
+{% block header %}
+    <div class="header">
+        <h1>Private Leaderboard</h1>
+        <div class="header-actions">
+            <a href="/leaderboard" class="header-btn btn-secondary">Public</a>
+            <a href="/dashboard" class="header-btn btn-secondary">Team</a>
+            <a href="/matches" class="header-btn btn-primary">Matches</a>
+            <a href="/logout" class="header-btn logout-btn">Logout</a>
+        </div>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="card">
+            <h2>All Player Rankings (Admin Only)</h2>
+            <p>All players ranked by TrueSkill rating (conservative estimate: mu - 3*sigma)</p>
+            {% if players %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Player</th>
+                        <th>TrueSkill</th>
+                        <th>Mu</th>
+                        <th>Sigma</th>
+                        <th>Games</th>
+                        <th>Wins</th>
+                        <th>Draws</th>
+                        <th>Practices</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in players %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ player.username }}</td>
+                        <td><strong>{{ "%.2f"|format(player.true_skill) }}</strong></td>
+                        <td>{{ "%.2f"|format(player.mu) }}</td>
+                        <td>{{ "%.2f"|format(player.sigma) }}</td>
+                        <td>{{ player.number_of_games or 0 }}</td>
+                        <td>{{ player.number_of_wins or 0 }}</td>
+                        <td>{{ player.number_of_draws or 0 }}</td>
+                        <td>{{ player.number_of_practices or 0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No ratings calculated yet. Click "Calculate Ratings" on the dashboard first.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

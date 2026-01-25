@@ -32,6 +32,8 @@ class User(Base):
     true_skill = Column(Float, nullable=True)  # Computed as mu - 3*sigma
     number_of_practices = Column(Integer, nullable=True)  # Unique practice dates
     number_of_games = Column(Integer, nullable=True)  # Total games played
+    number_of_wins = Column(Integer, nullable=True)  # Total wins
+    number_of_draws = Column(Integer, nullable=True)  # Total draws
     ratings_updated_at = Column(DateTime, nullable=True)  # When ratings were last calculated
 
     match_participations = relationship("MatchPlayer", back_populates="user")

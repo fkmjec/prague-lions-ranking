@@ -50,7 +50,7 @@ async def login(
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    response = RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+    response = RedirectResponse(url="/leaderboard", status_code=status.HTTP_302_FOUND)
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -123,11 +123,34 @@ async def match_list(
     user: User = Depends(require_login),
     db: Session = Depends(get_db),
 ):
-    matches = db.query(Match).order_by(Match.ordering.desc()).all()
     is_admin = user.role == UserRole.ADMIN
+    if is_admin:
+        matches = db.query(Match).order_by(Match.ordering.desc()).all()
+        match_deltas = {}
+    else:
+        matches = (
+            db.query(Match)
+            .join(MatchPlayer)
+            .filter(MatchPlayer.user_id == user.id)
+            .order_by(Match.ordering.desc())
+            .all()
+        )
+        # Build match_id → delta lookup from cached rating history
+        match_deltas = {}
+        if user.rating_history:
+            for day in json.loads(user.rating_history):
+                for m in day.get("matches", []):
+                    match_deltas[m["match_id"]] = m["delta"]
+
     return templates.TemplateResponse(
         "match_list.html",
-        {"request": request, "user": user, "is_admin": is_admin, "matches": matches},
+        {
+            "request": request,
+            "user": user,
+            "is_admin": is_admin,
+            "matches": matches,
+            "match_deltas": match_deltas,
+        },
     )
 
 
@@ -143,9 +166,43 @@ async def match_detail(
         raise HTTPException(status_code=404, detail="Match not found")
 
     is_admin = user.role == UserRole.ADMIN
+
+    # Collect per-player match stats from cached rating histories
+    def _find_match_stats(player: User, mid: int):
+        if not player.rating_history:
+            return None
+        for day in json.loads(player.rating_history):
+            for m in day.get("matches", []):
+                if m.get("match_id") == mid:
+                    return m
+        return None
+
+    team_a_ts_before = []
+    team_b_ts_before = []
+    for player in match.team_a_players:
+        stats = _find_match_stats(player, match_id)
+        if stats and "ts_after" in stats:
+            team_a_ts_before.append(stats["ts_after"] - stats["delta"])
+    for player in match.team_b_players:
+        stats = _find_match_stats(player, match_id)
+        if stats and "ts_after" in stats:
+            team_b_ts_before.append(stats["ts_after"] - stats["delta"])
+
+    team_a_avg_before = round(sum(team_a_ts_before) / len(team_a_ts_before), 2) if team_a_ts_before else None
+    team_b_avg_before = round(sum(team_b_ts_before) / len(team_b_ts_before), 2) if team_b_ts_before else None
+    user_match_stats = _find_match_stats(user, match_id)
+
     return templates.TemplateResponse(
         "match_detail.html",
-        {"request": request, "user": user, "is_admin": is_admin, "match": match},
+        {
+            "request": request,
+            "user": user,
+            "is_admin": is_admin,
+            "match": match,
+            "team_a_avg_before": team_a_avg_before,
+            "team_b_avg_before": team_b_avg_before,
+            "user_match_stats": user_match_stats,
+        },
     )
 
 
@@ -454,7 +511,6 @@ async def public_leaderboard(
     user: User = Depends(require_login),
     db: Session = Depends(get_db),
 ):
-    # Public leaderboard: top 10 players with at least 3 practices
     players = (
         db.query(User)
         .filter(User.true_skill.isnot(None))
@@ -465,6 +521,15 @@ async def public_leaderboard(
     )
 
     is_admin = user.role == UserRole.ADMIN
+    rating_history_json = user.rating_history if user.rating_history is not None else "null"
+
+    # Compute teammate sections from cached stats
+    teammate_data = json.loads(user.teammate_stats) if user.teammate_stats else []
+    most_played = sorted(teammate_data, key=lambda x: -x["games"])[:3]
+    eligible = [t for t in teammate_data if t["games"] >= 3]
+    best_teammates = sorted(eligible, key=lambda x: -x["win_pct"])[:3]
+    worst_teammate = sorted(eligible, key=lambda x: x["win_pct"])[:1]
+
     return templates.TemplateResponse(
         "leaderboard_public.html",
         {
@@ -472,6 +537,10 @@ async def public_leaderboard(
             "user": user,
             "is_admin": is_admin,
             "players": players,
+            "rating_history_json": rating_history_json,
+            "most_played": most_played,
+            "best_teammates": best_teammates,
+            "worst_teammate": worst_teammate,
         },
     )
 
@@ -499,6 +568,23 @@ async def private_leaderboard(
             "players": players,
         },
     )
+
+
+@router.post("/admin/calculate-ratings-leaderboard")
+async def calculate_ratings_leaderboard(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    update_user_ratings(db)
+    return RedirectResponse(url="/leaderboard", status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/api/my-rating-history")
+async def my_rating_history(
+    user: User = Depends(require_login),
+):
+    history = json.loads(user.rating_history) if user.rating_history else []
+    return JSONResponse(content=history)
 
 
 @router.get("/api/users/search")

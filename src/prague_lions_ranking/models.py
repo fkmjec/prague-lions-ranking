@@ -35,6 +35,8 @@ class User(Base):
     number_of_wins = Column(Integer, nullable=True)  # Total wins
     number_of_draws = Column(Integer, nullable=True)  # Total draws
     ratings_updated_at = Column(DateTime, nullable=True)  # When ratings were last calculated
+    rating_history = Column(Text, nullable=True)  # JSON list of {date, true_skill} points
+    teammate_stats = Column(Text, nullable=True)  # JSON list of {teammate, games, wins, win_pct}
 
     match_participations = relationship("MatchPlayer", back_populates="user")
 

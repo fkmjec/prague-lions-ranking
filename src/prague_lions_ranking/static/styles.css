@@ -111,6 +111,17 @@ body {
     color: var(--white);
 }
 
+.header-btn.btn-home {
+    color: var(--white);
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.header-btn.btn-home:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
 .header-btn.btn-secondary {
     color: var(--blue-300);
 }
@@ -152,6 +163,83 @@ body {
     color: var(--gray-500);
     font-size: 0.875rem;
     margin-bottom: 1rem;
+}
+
+.chart-wrap {
+    position: relative;
+    height: 260px;
+}
+
+.chart-loading,
+.chart-empty {
+    color: var(--gray-400);
+    font-size: 0.875rem;
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.match-popup {
+    position: absolute;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 0.625rem 0.875rem;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    font-size: 0.8125rem;
+    z-index: 10;
+    min-width: 150px;
+    pointer-events: auto;
+}
+
+.popup-date {
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.375rem;
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.popup-match {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.15rem 0;
+    color: var(--gray-700);
+}
+
+.popup-match a {
+    color: var(--blue-600);
+    text-decoration: none;
+}
+
+.popup-match a:hover {
+    text-decoration: underline;
+}
+
+.delta-pos { color: #2e7d32; font-weight: 600; }
+.delta-neg { color: #c62828; font-weight: 600; }
+
+.match-delta {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.match-delta.delta-pos { color: #2e7d32; }
+.match-delta.delta-neg { color: #c62828; }
+
+.calc-ratings-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-100);
+}
+
+.calc-note {
+    color: var(--gray-500);
+    font-size: 0.8125rem;
+    margin: 0;
 }
 
 .card-header {
@@ -905,6 +993,156 @@ th {
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--gray-500);
+}
+
+/* Outcome Badges (Win / Loss / Draw)
+   ========================================================================== */
+.outcome-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.outcome-win {
+    background: var(--blue-100);
+    color: var(--blue-800);
+}
+
+.outcome-loss {
+    background: #fdecea;
+    color: #b71c1c;
+}
+
+.outcome-draw {
+    background: var(--gray-100);
+    color: var(--gray-700);
+}
+
+/* Team avg stats (inside score-display in match_detail)
+   ========================================================================== */
+.team-avg-stats {
+    margin-top: 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+}
+
+.team-avg-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.15rem 0;
+}
+
+.team-avg-label {
+    color: var(--gray-500);
+}
+
+.team-avg-value {
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+/* Rating Change section (match_detail)
+   ========================================================================== */
+.rating-change-section {
+    background: var(--gray-50);
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.rating-change-section h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 0.75rem;
+}
+
+.rating-change-grid {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.rating-change-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.rating-change-label {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.rating-change-value {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Teammate Stats
+   ========================================================================== */
+.teammate-section {
+    margin-bottom: 1.25rem;
+}
+
+.teammate-section:last-child {
+    margin-bottom: 0;
+}
+
+.teammate-section h3 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+}
+
+.teammate-note {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--gray-400);
+    font-size: 0.75rem;
+}
+
+.teammate-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.teammate-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.375rem 0.625rem;
+    background: var(--gray-50);
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.teammate-name {
+    flex: 1;
+    font-weight: 500;
+    color: var(--gray-900);
+}
+
+.teammate-games {
+    color: var(--gray-500);
+    font-size: 0.8125rem;
+}
+
+.teammate-winpct {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    min-width: 5rem;
+    text-align: right;
 }
 
 /* Danger Zone

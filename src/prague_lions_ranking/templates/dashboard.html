@@ -2,17 +2,7 @@
 
 {% block title %}Team - Prague Lions Ranking{% endblock %}
 
-{% block header %}
-    <div class="header">
-        <h1>Team</h1>
-        <div class="header-actions">
-            <a href="/leaderboard" class="header-btn btn-secondary">Leaderboard</a>
-            {% if is_admin %}<a href="/admin/leaderboard" class="header-btn btn-secondary">Private</a>{% endif %}
-            <a href="/matches" class="header-btn btn-primary">Matches</a>
-            <a href="/logout" class="header-btn logout-btn">Logout</a>
-        </div>
-    </div>
-{% endblock %}
+{% block page_title %}Team{% endblock %}
 
 {% block content %}
     <div class="container">

@@ -16,6 +16,11 @@ uv run create-admin
 
 ## Running
 
+Set the required secret key (used for session signing):
+```bash
+export SECRET_KEY=your-secret-key-here
+```
+
 Start the development server:
 ```bash
 uv run uvicorn prague_lions_ranking.main:app --reload
@@ -23,12 +28,6 @@ uv run uvicorn prague_lions_ranking.main:app --reload
 
 Then open http://localhost:8000 in your browser.
 
-## Database Migration
-
-If upgrading from an older version, run the migration to add rating columns:
-```bash
-uv run python src/prague_lions_ranking/scripts/add_rating_columns.py
-```
 
 ## Usage
 

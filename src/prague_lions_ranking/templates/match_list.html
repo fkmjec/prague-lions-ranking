@@ -2,17 +2,7 @@
 
 {% block title %}Matches - Prague Lions Ranking{% endblock %}
 
-{% block header %}
-    <div class="header">
-        <h1>Matches</h1>
-        <div class="header-actions">
-            <a href="/leaderboard" class="header-btn btn-secondary">Leaderboard</a>
-            {% if is_admin %}<a href="/admin/leaderboard" class="header-btn btn-secondary">Private</a>{% endif %}
-            <a href="/dashboard" class="header-btn">Team</a>
-            <a href="/logout" class="header-btn logout-btn">Logout</a>
-        </div>
-    </div>
-{% endblock %}
+{% block page_title %}Matches{% endblock %}
 
 {% block content %}
     <div class="container container--wide">
@@ -44,7 +34,23 @@
                                 </div>
                             </div>
                             {% if match.has_score %}
-                            <div class="match-score">{{ match.score_team_a }} : {{ match.score_team_b }}</div>
+                                {% set a_won = match.score_team_a > match.score_team_b %}
+                                {% set b_won = match.score_team_b > match.score_team_a %}
+                                {% set user_in_a = user.username in (match.team_a_players | map(attribute='username') | list) %}
+                                {% if is_admin %}
+                                    {% if a_won %}<span class="outcome-badge outcome-win">A Won</span>
+                                    {% elif b_won %}<span class="outcome-badge outcome-win">B Won</span>
+                                    {% else %}<span class="outcome-badge outcome-draw">Draw</span>
+                                    {% endif %}
+                                {% else %}
+                                    {% if (user_in_a and a_won) or (not user_in_a and b_won) %}
+                                        <span class="outcome-badge outcome-win">Win</span>
+                                    {% elif not a_won and not b_won %}
+                                        <span class="outcome-badge outcome-draw">Draw</span>
+                                    {% else %}
+                                        <span class="outcome-badge outcome-loss">Loss</span>
+                                    {% endif %}
+                                {% endif %}
                             {% elif is_admin %}
                             <form class="score-form-inline" method="POST" action="/admin/matches/{{ match.id }}/score">
                                 <input type="number" name="score_team_a" min="0" required placeholder="0">
@@ -60,7 +66,13 @@
                         <div class="match-notes">{{ match.notes }}</div>
                         {% endif %}
                         <div class="match-actions">
-                            <a href="/matches/{{ match.id }}" class="btn-view">View{% if is_admin %}/Edit{% endif %}</a>
+                            {% if not is_admin and match_deltas is defined and match.id in match_deltas %}
+                                {% set delta = match_deltas[match.id] %}
+                                <span class="match-delta {% if delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                                    TrueSkill Change: {% if delta >= 0 %}+{% endif %}{{ "%.2f"|format(delta) }}
+                                </span>
+                            {% endif %}
+                            <a href="/matches/{{ match.id }}" class="btn-view">View</a>
                         </div>
                     </div>
                     {% endfor %}

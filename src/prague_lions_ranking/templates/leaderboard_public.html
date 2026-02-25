@@ -2,53 +2,175 @@
 
 {% block title %}Leaderboard - Prague Lions Ranking{% endblock %}
 
-{% block header %}
-    <div class="header">
-        <h1>Leaderboard</h1>
-        <div class="header-actions">
-            {% if is_admin %}<a href="/admin/leaderboard" class="header-btn btn-secondary">Private</a>{% endif %}
-            <a href="/dashboard" class="header-btn btn-secondary">Team</a>
-            <a href="/matches" class="header-btn btn-primary">Matches</a>
-            <a href="/logout" class="header-btn logout-btn">Logout</a>
-        </div>
-    </div>
-{% endblock %}
+{% block page_title %}Leaderboard{% endblock %}
 
 {% block content %}
-    <div class="container">
-        <div class="card">
-            <h2>Top 10 Players</h2>
-            <p>Players ranked by TrueSkill rating (minimum 3 practices required)</p>
-            {% if players %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Player</th>
-                        <th>TrueSkill</th>
-                        <th>Games</th>
-                        <th>Wins</th>
-                        <th>Draws</th>
-                        <th>Practices</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for player in players %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td>{{ player.username }}</td>
-                        <td><strong>{{ "%.2f"|format(player.true_skill) }}</strong></td>
-                        <td>{{ player.number_of_games or 0 }}</td>
-                        <td>{{ player.number_of_wins or 0 }}</td>
-                        <td>{{ player.number_of_draws or 0 }}</td>
-                        <td>{{ player.number_of_practices or 0 }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p>No rankings available yet. Players need at least 2 practices to appear on the leaderboard.</p>
-            {% endif %}
+<div class="container">
+    <div class="card">
+        <h2>Your Rating History</h2>
+        <div id="chart-not-computed" class="chart-empty" style="display:none;">
+            Rating history not yet computed.
         </div>
+        <div id="chart-empty" class="chart-empty" style="display:none;">No match data yet.</div>
+        <div id="chart-wrap" class="chart-wrap" style="display:none;">
+            <canvas id="ratingChart"></canvas>
+        </div>
+
+        {% if is_admin %}
+        <div class="calc-ratings-section">
+            <form method="POST" action="/admin/calculate-ratings-leaderboard">
+                <button type="submit">Calculate Ratings</button>
+            </form>
+            <p class="calc-note">Click after adding a new match to update all ratings and history. This may take a
+                moment.</p>
+        </div>
+        {% endif %}
     </div>
+
+    {% if most_played or best_teammates or worst_teammate %}
+    <div class="card">
+        <h2>Teammate Stats</h2>
+
+        {% if most_played %}
+        <div class="teammate-section">
+            <h3>Most Played With</h3>
+            <div class="teammate-list">
+                {% for t in most_played %}
+                <div class="teammate-row">
+                    <span class="teammate-name">{{ t.teammate }}</span>
+                    <span class="teammate-games">{{ t.games }} games</span>
+                    <span class="teammate-winpct {% if t.win_pct >= 50 %}delta-pos{% else %}delta-neg{% endif %}">{{
+                        t.win_pct }}% wins</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if best_teammates %}
+        <div class="teammate-section">
+            <h3>Best Teammates <span class="teammate-note">(min. 3 games together)</span></h3>
+            <div class="teammate-list">
+                {% for t in best_teammates %}
+                <div class="teammate-row">
+                    <span class="teammate-name">{{ t.teammate }}</span>
+                    <span class="teammate-games">{{ t.games }} games</span>
+                    <span class="teammate-winpct delta-pos">{{ t.win_pct }}% wins</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if worst_teammate %}
+        <div class="teammate-section">
+            <h3>Worst Teammate <span class="teammate-note">(min. 3 games together)</span></h3>
+            <div class="teammate-list">
+                {% for t in worst_teammate %}
+                <div class="teammate-row">
+                    <span class="teammate-name">{{ t.teammate }}</span>
+                    <span class="teammate-games">{{ t.games }} games</span>
+                    <span class="teammate-winpct delta-neg">{{ t.win_pct }}% wins</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h2>Top 10 Players</h2>
+        <p>Players ranked by TrueSkill rating (minimum 3 practices required)</p>
+        {% if players %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>TrueSkill</th>
+                    <th>Games</th>
+                    <th>Wins</th>
+                    <th>Draws</th>
+                    <th>Practices</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ player.username }}</td>
+                    <td><strong>{{ "%.2f"|format(player.true_skill) }}</strong></td>
+                    <td>{{ player.number_of_games or 0 }}</td>
+                    <td>{{ player.number_of_wins or 0 }}</td>
+                    <td>{{ player.number_of_draws or 0 }}</td>
+                    <td>{{ player.number_of_practices or 0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No rankings available yet. Players need at least 2 practices to appear on the leaderboard.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script
+    src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+    const data = {{ rating_history_json | safe }};
+
+    if (data === null) {
+        document.getElementById('chart-not-computed').style.display = 'block';
+    } else if (data.length === 0) {
+        document.getElementById('chart-empty').style.display = 'block';
+    } else {
+        document.getElementById('chart-wrap').style.display = 'block';
+
+        new Chart(document.getElementById('ratingChart'), {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'TrueSkill',
+                    data: data.map(d => ({ x: d.date, y: d.true_skill })),
+                    borderColor: '#3572b0',
+                    backgroundColor: 'rgba(53, 114, 176, 0.08)',
+                    borderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    tension: 0.15,
+                    fill: true,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: items => items[0].raw.x,
+                            label: ctx => `TrueSkill: ${ctx.parsed.y}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'day', tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'MMM d' } },
+                        ticks: { maxRotation: 45, font: { size: 11 } },
+                        grid: { color: 'rgba(0,0,0,0.04)' }
+                    },
+                    y: {
+                        ticks: { font: { size: 11 } },
+                        grid: { color: 'rgba(0,0,0,0.04)' }
+                    }
+                }
+            }
+        });
+    }
+</script>
 {% endblock %}

@@ -2,14 +2,7 @@
 
 {% block title %}Match Details - Prague Lions Ranking{% endblock %}
 
-{% block header %}
-    <div class="header">
-        <h1>Match Details</h1>
-        <div class="header-actions">
-            <a href="/matches" class="header-btn btn-back">Back to Matches</a>
-        </div>
-    </div>
-{% endblock %}
+{% block page_title %}Match Details{% endblock %}
 
 {% block content %}
     <div class="container container--narrow">
@@ -40,9 +33,27 @@
                 </div>
                 <div class="score-display">
                     {% if match.has_score %}
-                    <div class="score">{{ match.score_team_a }} : {{ match.score_team_b }}</div>
+                        {% if match.score_team_a > match.score_team_b %}
+                        <span class="outcome-badge outcome-win">A Won</span>
+                        {% elif match.score_team_b > match.score_team_a %}
+                        <span class="outcome-badge outcome-win">B Won</span>
+                        {% else %}
+                        <span class="outcome-badge outcome-draw">Draw</span>
+                        {% endif %}
                     {% else %}
                     <div class="no-score">No score yet</div>
+                    {% endif %}
+                    {% if team_a_avg_before is not none or team_b_avg_before is not none %}
+                    <div class="team-avg-stats">
+                        <div class="team-avg-row">
+                            <span class="team-avg-label">A avg. TS before</span>
+                            <span class="team-avg-value">{{ "%.2f"|format(team_a_avg_before) if team_a_avg_before is not none else "—" }}</span>
+                        </div>
+                        <div class="team-avg-row">
+                            <span class="team-avg-label">B avg. TS before</span>
+                            <span class="team-avg-value">{{ "%.2f"|format(team_b_avg_before) if team_b_avg_before is not none else "—" }}</span>
+                        </div>
+                    </div>
                     {% endif %}
                 </div>
                 <div class="team-box team-b">
@@ -56,6 +67,32 @@
                     </ul>
                 </div>
             </div>
+
+            {% if user_match_stats %}
+            <div class="rating-change-section">
+                <h3>Your Rating Change</h3>
+                <div class="rating-change-grid">
+                    <div class="rating-change-item">
+                        <span class="rating-change-label">TrueSkill</span>
+                        <span class="rating-change-value {% if user_match_stats.delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                            {% if user_match_stats.delta >= 0 %}+{% endif %}{{ "%.2f"|format(user_match_stats.delta) }}
+                        </span>
+                    </div>
+                    <div class="rating-change-item">
+                        <span class="rating-change-label">μ (Mu)</span>
+                        <span class="rating-change-value {% if user_match_stats.mu_delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                            {% if user_match_stats.mu_delta >= 0 %}+{% endif %}{{ "%.4f"|format(user_match_stats.mu_delta) }}
+                        </span>
+                    </div>
+                    <div class="rating-change-item">
+                        <span class="rating-change-label">σ (Sigma)</span>
+                        <span class="rating-change-value {% if user_match_stats.sigma_delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                            {% if user_match_stats.sigma_delta >= 0 %}+{% endif %}{{ "%.4f"|format(user_match_stats.sigma_delta) }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             {% if is_admin %}
             <div class="score-form">

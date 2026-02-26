@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}About - Prague Lions Ranking{% endblock %}
+
+{% block page_title %}About{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: none;">
+    <div class="card card--plain">
+        <h2>PATRIC</h2>
+        <p>
+            Welcome to <strong>PATRIC: Player Assessment via TrueSkill:
+                Rating of Impact &amp; Consistency</strong>. This app is a tool for estimating skills of players
+            repeatedly competing against each other in any team sport. PATRIC builds on
+            Microsoft's TrueSkill algorithm. Unlike traditional 1v1 match-making algorithms like Elo, TrueSkill supports
+            team-based games of any team size.
+        </p>
+        <p>
+            The basic intuition behind the ranking is that winning games improves your rating, losing games
+            decreases it. The magnitude of the change depends on the difference of ratings in the two teams.
+            Only the final result (win/loss/draw) matters, not the score itself.
+        </p>
+
+        <h2>About TrueSkill</h2>
+        <p>
+            Each player's performance is modelled as a Gaussian distribution with two parameters:
+            <strong>μ (mu)</strong>, your estimated average performance level, and <strong>σ (sigma)</strong>,
+            the uncertainty in that estimate. Winning moves μ up, losing moves it down. Bigger upsets (meaning a team
+            with a much smaller rating than its opponent wins) cause
+            larger shifts. New players start with high σ, which shrinks as they play more games.
+        </p>
+        <p>
+            A team's performance is the sum of its players' performances (a sum of Gaussians is itself a
+            Gaussian). The displayed TrueSkill value is a conservative estimate computed as
+            <strong>μ&nbsp;−&nbsp;3σ</strong>, meaning your true skill is very likely above that value
+            (see the <a href="https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule" target="_blank"
+                rel="noopener">three-sigma rule</a>).
+            Reducing σ by playing more games therefore improves your TrueSkill rating even without winning more.
+        </p>
+
+        <h2>TrueSkill Through Time (TTT)</h2>
+        <p>
+            The TTT variant, which is used in this project, improves on vanilla TrueSkill by propagating results both
+            forward and backward through time via a Bayesian network, rather than only
+            updating estimates after each result.
+        </p>
+        <p>
+            For example, if you beat someone early in the season who later becomes the best player on the team, TTT will
+            credit
+            you for that result retroactively - vanilla TrueSkill would only account for their rating at the
+            time of the match, which could have been low.
+        </p>
+        <p>
+            Using TTT for Ultimate Frisbee was inspired by Jake Smart, who did this for the college team Brownian
+            Motion.
+        </p>
+
+        <h2>Literature</h2>
+        <ul class="about-literature">
+            <li>
+                <a href="https://github.com/fkmjec/prague-lions-ranking" target="_blank" rel="noopener">GitHub Repo of
+                    this project</a>
+            </li>
+            <li>
+                <a href="https://www.microsoft.com/en-us/research/project/trueskill-ranking-system/" target="_blank"
+                    rel="noopener">Microsoft's article about TrueSkill</a>
+            </li>
+            <li>
+                <a href="https://www.moserware.com/2010/03/computing-your-skill.html" target="_blank" rel="noopener">A
+                    more informal primer on TrueSkill</a>
+            </li>
+            <li>
+                <a href="https://creators.spotify.com/pod/profile/pod-practice/episodes/Jake-Smart--Brown-BMo--Boston-DiG--Boston-Glory--Ep-78-e2tv5dm"
+                    target="_blank" rel="noopener">Jake Smart on using TrueSkill Through Time for Ultimate (minutes
+                    0:42–0:55)</a>
+            </li>
+            <li>
+                <a href="https://www.microsoft.com/en-us/research/wp-content/uploads/2006/01/TR-2006-80.pdf"
+                    target="_blank" rel="noopener">TrueSkill original paper</a>
+            </li>
+            <li>
+                <a href="https://www.jstatsoft.org/article/view/v112i06" target="_blank" rel="noopener">TrueSkill
+                    Through Time paper</a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

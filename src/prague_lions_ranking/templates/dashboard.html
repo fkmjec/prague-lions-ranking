@@ -66,39 +66,74 @@
         {% endif %}
 
         <div class="card">
-            <h2>Users</h2>
+            <h2>Players</h2>
             {% if users %}
             <table>
                 <thead>
                     <tr>
-                        <th>Username</th>
+                        <th>Player</th>
                         <th>Role</th>
                         <th>Joined</th>
-                        {% if is_admin %}<th>Actions</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for u in users %}
-                    <tr>
-                        <td>{{ u.username }}</td>
+                    <tr class="user-row" data-detail="user-detail-{{ u.id }}">
+                        <td><span class="user-expand-name">{{ u.username }}</span></td>
                         <td>
                             <span class="role-badge role-{{ u.role.value }}">
                                 {{ u.role.value }}
                             </span>
                         </td>
-                        <td>{{ u.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                        {% if is_admin %}
-                        <td class="actions">
-                            <form method="POST" action="/admin/users/{{ u.id }}/reset-password" style="display:inline;">
-                                <button type="submit" class="btn-reset" onclick="return confirm('Reset password for {{ u.username }}?')">Reset Password</button>
-                            </form>
-                            {% if u.id != user.id %}
-                            <form method="POST" action="/admin/users/{{ u.id }}/delete" style="display:inline;">
-                                <button type="submit" class="btn-delete" onclick="return confirm('Delete user {{ u.username }}? This cannot be undone.')">Delete</button>
-                            </form>
-                            {% endif %}
+                        <td>{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+                    </tr>
+                    <tr class="user-detail-row" id="user-detail-{{ u.id }}">
+                        <td colspan="3">
+                            <div class="user-detail-content">
+                                <div class="user-stats-grid">
+                                    <div class="user-stat-item">
+                                        <span class="user-stat-label">TrueSkill</span>
+                                        <span class="user-stat-value">{% if u.true_skill is not none %}{{ "%.2f"|format(u.true_skill) }}{% else %}<span class="tbd">TBD</span>{% endif %}</span>
+                                    </div>
+                                    <div class="user-stat-item">
+                                        <span class="user-stat-label">μ</span>
+                                        <span class="user-stat-value">{% if u.mu is not none %}{{ "%.2f"|format(u.mu) }}{% else %}<span class="tbd">TBD</span>{% endif %}</span>
+                                    </div>
+                                    <div class="user-stat-item">
+                                        <span class="user-stat-label">σ</span>
+                                        <span class="user-stat-value">{% if u.sigma is not none %}{{ "%.2f"|format(u.sigma) }}{% else %}<span class="tbd">TBD</span>{% endif %}</span>
+                                    </div>
+                                    <div class="user-stat-item">
+                                        <span class="user-stat-label">Games</span>
+                                        <span class="user-stat-value">{{ u.number_of_games or 0 }}</span>
+                                    </div>
+                                    <div class="user-stat-item">
+                                        <span class="user-stat-label">Wins</span>
+                                        <span class="user-stat-value">{{ u.number_of_wins or 0 }}</span>
+                                    </div>
+                                    <div class="user-stat-item">
+                                        <span class="user-stat-label">Draws</span>
+                                        <span class="user-stat-value">{{ u.number_of_draws or 0 }}</span>
+                                    </div>
+                                    <div class="user-stat-item">
+                                        <span class="user-stat-label">Practices</span>
+                                        <span class="user-stat-value">{{ u.number_of_practices or 0 }}</span>
+                                    </div>
+                                </div>
+                                {% if is_admin %}
+                                <div class="user-actions">
+                                    <form method="POST" action="/admin/users/{{ u.id }}/reset-password" style="display:inline;">
+                                        <button type="submit" class="btn-reset" onclick="return confirm('Reset password for {{ u.username }}?')">Reset Password</button>
+                                    </form>
+                                    {% if u.id != user.id %}
+                                    <form method="POST" action="/admin/users/{{ u.id }}/delete" style="display:inline;">
+                                        <button type="submit" class="btn-delete" onclick="return confirm('Delete user {{ u.username }}? This cannot be undone.')">Delete</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
                         </td>
-                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -108,4 +143,20 @@
             {% endif %}
         </div>
     </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    document.querySelectorAll('.user-row').forEach(function(row) {
+        row.addEventListener('click', function() {
+            var detailId = row.getAttribute('data-detail');
+            var detail = document.getElementById(detailId);
+            if (!detail) return;
+            var open = detail.classList.toggle('user-detail-open');
+            row.classList.toggle('user-row-open', open);
+        });
+    });
+})();
+</script>
 {% endblock %}

@@ -579,6 +579,21 @@ async def calculate_ratings_leaderboard(
     return RedirectResponse(url="/leaderboard", status_code=status.HTTP_302_FOUND)
 
 
+@router.get("/about", response_class=HTMLResponse)
+async def about(
+    request: Request,
+    user: User = Depends(require_login),
+):
+    return templates.TemplateResponse(
+        "about.html",
+        {
+            "request": request,
+            "user": user,
+            "is_admin": user.role == UserRole.ADMIN,
+        },
+    )
+
+
 @router.get("/api/my-rating-history")
 async def my_rating_history(
     user: User = Depends(require_login),

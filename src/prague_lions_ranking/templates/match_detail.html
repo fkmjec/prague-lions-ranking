@@ -5,131 +5,147 @@
 {% block page_title %}Match Details{% endblock %}
 
 {% block content %}
-    <div class="container container--narrow">
-        <div class="card">
-            <h2>Match Information</h2>
+<div class="container container--narrow">
+    <div class="card">
+        <h2>Match Information</h2>
 
-            <div class="match-info">
-                <div class="match-date">
-                    <strong>Date:</strong> {{ match.date.strftime('%Y-%m-%d %H:%M') }}
-                </div>
-                {% if match.notes %}
-                <div class="match-notes">
-                    {{ match.notes }}
-                </div>
+        {# Determine display order: winner always on left #}
+        {% set a_won = match.has_score and match.score_team_a > match.score_team_b %}
+        {% set b_won = match.has_score and match.score_team_b > match.score_team_a %}
+        {% set ns = namespace(
+            left_players=match.team_a_players,
+            right_players=match.team_b_players,
+            left_avg=team_a_avg_before,
+            right_avg=team_b_avg_before,
+            left_label="",
+            right_label=""
+        ) %}
+        {% if b_won %}
+            {% set ns.left_players = match.team_b_players %}
+            {% set ns.right_players = match.team_a_players %}
+            {% set ns.left_avg = team_b_avg_before %}
+            {% set ns.right_avg = team_a_avg_before %}
+        {% endif %}
+        {% if a_won or b_won %}
+            {% set ns.left_label = "Winner" %}
+            {% set ns.right_label = "Loser" %}
+        {% elif match.has_score %}
+            {% set ns.left_label = "Draw" %}
+            {% set ns.right_label = "Draw" %}
+        {% endif %}
+
+        <div class="match-info">
+            <div class="match-date-row">
+                <div class="match-date">{{ match.date.strftime('%Y-%m-%d') }}</div>
+                {% if match.has_score %}
+                    {% if a_won or b_won %}
+                    <span class="outcome-badge outcome-win">Won</span>
+                    {% else %}
+                    <span class="outcome-badge outcome-draw">Draw</span>
+                    {% endif %}
                 {% endif %}
             </div>
-
-            <div class="teams-display">
-                <div class="team-box team-a">
-                    <div class="team-label">Team A</div>
-                    <ul class="team-players">
-                        {% for player in match.team_a_players %}
-                        <li>{{ player.username }}</li>
-                        {% else %}
-                        <li style="color: #999;">No players</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                <div class="score-display">
-                    {% if match.has_score %}
-                        {% if match.score_team_a > match.score_team_b %}
-                        <span class="outcome-badge outcome-win">A Won</span>
-                        {% elif match.score_team_b > match.score_team_a %}
-                        <span class="outcome-badge outcome-win">B Won</span>
-                        {% else %}
-                        <span class="outcome-badge outcome-draw">Draw</span>
-                        {% endif %}
-                    {% else %}
-                    <div class="no-score">No score yet</div>
-                    {% endif %}
-                    {% if team_a_avg_before is not none or team_b_avg_before is not none %}
-                    <div class="team-avg-stats">
-                        <div class="team-avg-row">
-                            <span class="team-avg-label">A avg. TS before</span>
-                            <span class="team-avg-value">{{ "%.2f"|format(team_a_avg_before) if team_a_avg_before is not none else "—" }}</span>
-                        </div>
-                        <div class="team-avg-row">
-                            <span class="team-avg-label">B avg. TS before</span>
-                            <span class="team-avg-value">{{ "%.2f"|format(team_b_avg_before) if team_b_avg_before is not none else "—" }}</span>
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="team-box team-b">
-                    <div class="team-label">Team B</div>
-                    <ul class="team-players">
-                        {% for player in match.team_b_players %}
-                        <li>{{ player.username }}</li>
-                        {% else %}
-                        <li style="color: #999;">No players</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-
-            {% if user_match_stats %}
-            <div class="rating-change-section">
-                <h3>Your Rating Change</h3>
-                <div class="rating-change-grid">
-                    <div class="rating-change-item">
-                        <span class="rating-change-label">TrueSkill</span>
-                        <span class="rating-change-value {% if user_match_stats.delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
-                            {% if user_match_stats.delta >= 0 %}+{% endif %}{{ "%.2f"|format(user_match_stats.delta) }}
-                        </span>
-                    </div>
-                    <div class="rating-change-item">
-                        <span class="rating-change-label">μ (Mu)</span>
-                        <span class="rating-change-value {% if user_match_stats.mu_delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
-                            {% if user_match_stats.mu_delta >= 0 %}+{% endif %}{{ "%.4f"|format(user_match_stats.mu_delta) }}
-                        </span>
-                    </div>
-                    <div class="rating-change-item">
-                        <span class="rating-change-label">σ (Sigma)</span>
-                        <span class="rating-change-value {% if user_match_stats.sigma_delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
-                            {% if user_match_stats.sigma_delta >= 0 %}+{% endif %}{{ "%.4f"|format(user_match_stats.sigma_delta) }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if is_admin %}
-            <div class="score-form">
-                <h3>{% if match.has_score %}Update{% else %}Set{% endif %} Score</h3>
-                <form method="POST" action="/admin/matches/{{ match.id }}/score">
-                    <div class="score-inputs">
-                        <div class="score-input-group">
-                            <label>Team A</label>
-                            <input type="number" name="score_team_a" min="0"
-                                   value="{{ match.score_team_a or '' }}" required>
-                        </div>
-                        <span class="score-separator">:</span>
-                        <div class="score-input-group">
-                            <label>Team B</label>
-                            <input type="number" name="score_team_b" min="0"
-                                   value="{{ match.score_team_b or '' }}" required>
-                        </div>
-                    </div>
-                    <div class="form-actions form-actions--center">
-                        <button type="submit">Save Score</button>
-                    </div>
-                </form>
-            </div>
+            {% if match.notes %}
+            <div class="match-notes">{{ match.notes }}</div>
             {% endif %}
         </div>
 
+        <div class="teams-display">
+            <div class="team-box">
+                {% if ns.left_label %}<div class="team-label">{{ ns.left_label }}</div>{% endif %}
+                {% if ns.left_avg is not none %}
+                <div class="team-avg-before">Avg. TS: {{ "%.2f"|format(ns.left_avg) }}</div>
+                {% endif %}
+                <ul class="team-players">
+                    {% for player in ns.left_players %}
+                    <li>{{ player.username }}</li>
+                    {% else %}
+                    <li style="color: #999;">No players</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="team-box">
+                {% if ns.right_label %}<div class="team-label">{{ ns.right_label }}</div>{% endif %}
+                {% if ns.right_avg is not none %}
+                <div class="team-avg-before">Avg. TS: {{ "%.2f"|format(ns.right_avg) }}</div>
+                {% endif %}
+                <ul class="team-players">
+                    {% for player in ns.right_players %}
+                    <li>{{ player.username }}</li>
+                    {% else %}
+                    <li style="color: #999;">No players</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        {% if user_match_stats %}
+        <div class="rating-change-section">
+            <h3>Your Rating Change</h3>
+            <div class="rating-change-grid">
+                <div class="rating-change-item">
+                    <span class="rating-change-label">TrueSkill</span>
+                    <span
+                        class="rating-change-value {% if user_match_stats.delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                        {% if user_match_stats.delta >= 0 %}+{% endif %}{{ "%.2f"|format(user_match_stats.delta) }}
+                    </span>
+                </div>
+                <div class="rating-change-item">
+                    <span class="rating-change-label">μ</span>
+                    <span
+                        class="rating-change-value {% if user_match_stats.mu_delta >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                        {% if user_match_stats.mu_delta >= 0 %}+{% endif %}{{ "%.4f"|format(user_match_stats.mu_delta)
+                        }}
+                    </span>
+                </div>
+                <div class="rating-change-item">
+                    <span class="rating-change-label">σ</span>
+                    <span
+                        class="rating-change-value {% if user_match_stats.sigma_delta <= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                        {% if user_match_stats.sigma_delta >= 0 %}+{% endif %}{{
+                        "%.4f"|format(user_match_stats.sigma_delta) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if is_admin %}
-        <div class="card danger-zone">
-            <h2>Danger Zone</h2>
-            <p style="margin-bottom: 1rem;">Deleting this match will permanently remove it and all associated data.</p>
-            <form method="POST" action="/admin/matches/{{ match.id }}/delete">
-                <button type="submit" class="btn-delete btn-delete--large"
-                        onclick="return confirm('Are you sure you want to delete this match? This cannot be undone.')">
-                    Delete Match
-                </button>
+        <div class="score-form">
+            <h3>{% if match.has_score %}Update{% else %}Set{% endif %} Score</h3>
+            <form method="POST" action="/admin/matches/{{ match.id }}/score">
+                <div class="score-inputs">
+                    <div class="score-input-group">
+                        <label>Team A</label>
+                        <input type="number" name="score_team_a" min="0" value="{{ match.score_team_a or '' }}"
+                            required>
+                    </div>
+                    <span class="score-separator">:</span>
+                    <div class="score-input-group">
+                        <label>Team B</label>
+                        <input type="number" name="score_team_b" min="0" value="{{ match.score_team_b or '' }}"
+                            required>
+                    </div>
+                </div>
+                <div class="form-actions form-actions--center">
+                    <button type="submit">Save Score</button>
+                </div>
             </form>
         </div>
         {% endif %}
     </div>
+
+    {% if is_admin %}
+    <div class="card danger-zone">
+        <h2>Delete</h2>
+        <p style="margin-bottom: 1rem;">Deleting this match will permanently remove it and all associated data.</p>
+        <form method="POST" action="/admin/matches/{{ match.id }}/delete">
+            <button type="submit" class="btn-delete btn-delete--large"
+                onclick="return confirm('Are you sure you want to delete this match? This cannot be undone.')">
+                Delete Match
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

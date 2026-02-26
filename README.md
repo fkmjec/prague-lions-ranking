@@ -61,3 +61,11 @@ Player ratings are calculated using the TrueSkill Through Time algorithm, which:
 - Considers the full history of matches to compute ratings
 - Tracks skill (mu), uncertainty (sigma), and conservative rating (true_skill = mu - 3*sigma)
 - Counts unique practice dates and total games per player
+
+## Technical Details
+
+**Draw probability (`p_draw`):** Some games allow a draw, some do not. While a standard game of Ultimate does not allow a draw, the ranked matches are often mini games or other variations where a draw can occur. TrueSkill uses a parameter `p_draw` which estimates the probability of a game ending in a draw. If this value is very small, any draw is very significant and holds great value; if it is very large, non-draw results are significant instead. We set `p_draw` by looking at how frequently draws occur across all games — that is the only approach that realistically makes sense.
+
+**Beta parameter:** Beta is a scale of the skill estimates: players whose skills differ by one beta have a 76% probability of the stronger player winning. We use the default value (1), but in the future this could be tuned by inspecting the rankings of players one knows well.
+
+**Gamma parameter:** Gamma is a dynamic factor that addresses the fact that skills change over time and between games. Practically, gamma squared is added to uncertainty between each time tick — for us, that means between each practice. We use the default value (0.03).

@@ -2,7 +2,7 @@
 
 {% block title %}Leaderboard - Prague Lions Ranking{% endblock %}
 
-{% block page_title %}Leaderboard{% endblock %}
+{% block page_title %}Home{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -83,28 +83,40 @@
         <h2>Top 10 Players</h2>
         <p>Players ranked by TrueSkill rating (minimum 3 practices required)</p>
         {% if players %}
-        <table>
+        <table class="leaderboard-table">
             <thead>
                 <tr>
                     <th>Rank</th>
                     <th>Player</th>
                     <th>TrueSkill</th>
-                    <th>Games</th>
-                    <th>Wins</th>
-                    <th>Draws</th>
-                    <th>Practices</th>
+                    <th class="lb-extra">Games</th>
+                    <th class="lb-extra">Wins</th>
+                    <th class="lb-extra">Draws</th>
+                    <th class="lb-extra">Practices</th>
                 </tr>
             </thead>
             <tbody>
                 {% for player in players %}
                 <tr>
                     <td>{{ loop.index }}</td>
-                    <td>{{ player.username }}</td>
+                    <td>
+                        <span class="lb-name" data-idx="{{ loop.index0 }}">{{ player.username }}</span>
+                    </td>
                     <td><strong>{{ "%.2f"|format(player.true_skill) }}</strong></td>
-                    <td>{{ player.number_of_games or 0 }}</td>
-                    <td>{{ player.number_of_wins or 0 }}</td>
-                    <td>{{ player.number_of_draws or 0 }}</td>
-                    <td>{{ player.number_of_practices or 0 }}</td>
+                    <td class="lb-extra">{{ player.number_of_games or 0 }}</td>
+                    <td class="lb-extra">{{ player.number_of_wins or 0 }}</td>
+                    <td class="lb-extra">{{ player.number_of_draws or 0 }}</td>
+                    <td class="lb-extra">{{ player.number_of_practices or 0 }}</td>
+                </tr>
+                <tr class="lb-detail-row" id="lb-detail-{{ loop.index0 }}">
+                    <td colspan="3">
+                        <div class="lb-detail-content">
+                            <span>Games: {{ player.number_of_games or 0 }}</span>
+                            <span>Wins: {{ player.number_of_wins or 0 }}</span>
+                            <span>Draws: {{ player.number_of_draws or 0 }}</span>
+                            <span>Practices: {{ player.number_of_practices or 0 }}</span>
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -172,5 +184,13 @@
             }
         });
     }
+
+document.querySelectorAll('.lb-name').forEach(function(el) {
+    el.addEventListener('click', function() {
+        if (window.innerWidth >= 600) return;
+        const detail = document.getElementById('lb-detail-' + this.dataset.idx);
+        detail.classList.toggle('lb-detail-open');
+    });
+});
 </script>
 {% endblock %}

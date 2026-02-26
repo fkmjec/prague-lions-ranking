@@ -1508,6 +1508,16 @@ th {
     flex-wrap: wrap;
 }
 
+/* Welcome greeting
+   ========================================================================== */
+.welcome-greeting {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    padding: 0.25rem 0;
+    margin-bottom: 1.25rem;
+}
+
 /* About page
    ========================================================================== */
 .card--plain {
@@ -1600,4 +1610,257 @@ th {
 .danger-zone h2 {
     color: var(--gray-700);
     border-bottom-color: var(--gray-200);
+}
+
+/* Balancer page
+   ========================================================================== */
+.balance-desc {
+    color: var(--gray-500);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+}
+
+.balance-settings {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.balance-settings .form-group {
+    margin-bottom: 0;
+}
+
+.balance-num-input {
+    width: 9rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    color: var(--gray-900);
+    background: var(--white);
+    transition: border-color 0.15s;
+}
+
+.balance-num-input:focus {
+    outline: none;
+    border-color: var(--blue-500);
+}
+
+.balance-label-note {
+    font-weight: 400;
+    color: var(--gray-400);
+    font-size: 0.8125rem;
+}
+
+.balance-pool-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.balance-pool-header h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.balance-pool-hint {
+    font-size: 0.8125rem;
+    color: var(--gray-400);
+}
+
+.balance-player-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+/* Hide the real checkbox, style the label as a chip */
+.balance-player-chip {
+    cursor: pointer;
+}
+
+.balance-player-chip input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.balance-chip-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 20px;
+    font-size: 0.8125rem;
+    color: var(--gray-700);
+    background: var(--white);
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    user-select: none;
+}
+
+.balance-player-chip input[type="checkbox"]:checked + .balance-chip-inner {
+    background: var(--blue-600);
+    border-color: var(--blue-600);
+    color: var(--white);
+}
+
+.balance-chip-name {
+    font-weight: 500;
+}
+
+.balance-chip-skill {
+    font-size: 0.75rem;
+    opacity: 0.75;
+}
+
+.balance-chip-skill--unrated {
+    opacity: 0.5;
+}
+
+/* Results */
+.balance-result-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.balance-result-header h2 {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.balance-objective-badge {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    background: var(--gray-100);
+    border-radius: 12px;
+    padding: 0.2rem 0.6rem;
+}
+
+.balance-objective-note {
+    font-size: 0.8125rem;
+    color: var(--gray-400);
+    margin-bottom: 1.25rem;
+}
+
+.balance-teams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.balance-team-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+}
+
+.balance-team-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--blue-700);
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.balance-team-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+    font-size: 0.875rem;
+}
+
+.balance-team-player {
+    color: var(--gray-900);
+}
+
+.balance-team-avg {
+    margin-top: 0.5rem;
+    padding-top: 0.375rem;
+    border-top: 1px solid var(--gray-100);
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+    text-align: right;
+}
+
+/* Matchup quality bars */
+.balance-pairs h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.625rem;
+}
+
+.balance-pair-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.balance-pair-label {
+    font-size: 0.8125rem;
+    color: var(--gray-700);
+    min-width: 10rem;
+}
+
+.balance-gap-value {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.balance-quality--good { color: #2e7d32; }
+.balance-quality--ok   { color: var(--gray-700); }
+.balance-quality--poor { color: #c62828; }
+
+/* Personal stats summary
+   ========================================================================== */
+.stats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 0.625rem 1.25rem;
+    min-width: 5rem;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    text-align: center;
+    margin-top: 0.2rem;
+}
+
+.stat-sublabel {
+    font-size: 0.6875rem;
+    color: var(--gray-400);
 }

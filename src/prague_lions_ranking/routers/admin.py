@@ -9,6 +9,13 @@ from sqlalchemy.orm import Session
 from prague_lions_ranking.database import get_db
 from prague_lions_ranking.models import User, UserRole, Match, MatchPlayer, Team
 from prague_lions_ranking.rating import update_user_ratings
+from prague_lions_ranking.balance import (
+    optimize_teams,
+    PlayerRating,
+    DEFAULT_MU,
+    DEFAULT_SIGMA,
+    DEFAULT_SWAPS,
+)
 from prague_lions_ranking.auth import (
     authenticate_user,
     create_access_token,
@@ -530,6 +537,30 @@ async def public_leaderboard(
     best_teammates = sorted(eligible, key=lambda x: -x["win_pct"])[:3]
     worst_teammate = sorted(eligible, key=lambda x: x["win_pct"])[:1]
 
+    # Compute personal stats summary
+    player_stats = None
+    if user.number_of_games is not None:
+        games = user.number_of_games or 0
+        wins = user.number_of_wins or 0
+        draws = user.number_of_draws or 0
+        peak_ts = None
+        peak_date = None
+        if user.rating_history:
+            history = json.loads(user.rating_history)
+            if history:
+                peak_entry = max(history, key=lambda x: x["true_skill"])
+                peak_ts = round(peak_entry["true_skill"], 2)
+                peak_date = peak_entry["date"]
+        player_stats = {
+            "games": games,
+            "practices": user.number_of_practices or 0,
+            "wins": wins,
+            "draws": draws,
+            "losses": games - wins - draws,
+            "peak_ts": peak_ts,
+            "peak_date": peak_date,
+        }
+
     return templates.TemplateResponse(
         "leaderboard_public.html",
         {
@@ -541,6 +572,7 @@ async def public_leaderboard(
             "most_played": most_played,
             "best_teammates": best_teammates,
             "worst_teammate": worst_teammate,
+            "player_stats": player_stats,
         },
     )
 
@@ -590,6 +622,123 @@ async def about(
             "request": request,
             "user": user,
             "is_admin": user.role == UserRole.ADMIN,
+        },
+    )
+
+
+@router.get("/balance", response_class=HTMLResponse)
+async def balance_page(
+    request: Request,
+    user: User = Depends(require_login),
+    db: Session = Depends(get_db),
+):
+    all_players = db.query(User).filter(User.role == UserRole.USER).order_by(User.username).all()
+    return templates.TemplateResponse(
+        "balance.html",
+        {
+            "request": request,
+            "user": user,
+            "is_admin": user.role == UserRole.ADMIN,
+            "all_players": all_players,
+            "selected": [],
+            "form_num_teams": 2,
+            "form_num_swaps": DEFAULT_SWAPS,
+            "result": None,
+            "error": None,
+        },
+    )
+
+
+@router.post("/balance", response_class=HTMLResponse)
+async def balance_compute(
+    request: Request,
+    user: User = Depends(require_login),
+    db: Session = Depends(get_db),
+):
+    form = await request.form()
+    selected_usernames: list[str] = form.getlist("players")
+    try:
+        num_teams = int(form.get("num_teams", 2))
+    except (TypeError, ValueError):
+        num_teams = 2
+    try:
+        num_swaps = int(form.get("num_swaps", DEFAULT_SWAPS))
+    except (TypeError, ValueError):
+        num_swaps = DEFAULT_SWAPS
+
+    all_players = db.query(User).filter(User.role == UserRole.USER).order_by(User.username).all()
+    is_admin = user.role == UserRole.ADMIN
+
+    def _error(msg: str):
+        return templates.TemplateResponse(
+            "balance.html",
+            {
+                "request": request,
+                "user": user,
+                "is_admin": is_admin,
+                "all_players": all_players,
+                "selected": selected_usernames,
+                "form_num_teams": num_teams,
+                "form_num_swaps": num_swaps,
+                "result": None,
+                "error": msg,
+            },
+            status_code=400,
+        )
+
+    if len(selected_usernames) < 2:
+        return _error("Select at least 2 players.")
+    if len(selected_usernames) < num_teams:
+        return _error(f"Cannot form {num_teams} teams from {len(selected_usernames)} players.")
+
+    username_map = {u.username: u for u in all_players}
+    player_ratings = [
+        PlayerRating(
+            username=name,
+            mu=username_map[name].mu if (name in username_map and username_map[name].mu is not None) else DEFAULT_MU,
+            sigma=username_map[name].sigma if (name in username_map and username_map[name].sigma is not None) else DEFAULT_SIGMA,
+        )
+        for name in selected_usernames
+        if name in username_map
+    ]
+
+    try:
+        division = optimize_teams(player_ratings, num_teams, num_swaps)
+    except ValueError as exc:
+        return _error(str(exc))
+
+    def _fmt(v: float) -> str:
+        return f"{v:.1f}"
+
+    result = {
+        "objective": division.objective,
+        "pair_gaps": division.pair_gaps,
+        "teams": [
+            {
+                "players": [
+                    {"username": p.username, "true_skill": _fmt(p.mu - 3 * p.sigma)}
+                    for p in sorted(team, key=lambda p: -(p.mu - 3 * p.sigma))
+                ],
+                "avg_skill": _fmt(
+                    sum(p.mu - 3 * p.sigma for p in team) / len(team)
+                ) if team else "–",
+            }
+            for team in division.teams
+        ],
+    }
+
+    return templates.TemplateResponse(
+        "balance.html",
+        {
+            "request": request,
+            "user": user,
+            "is_admin": is_admin,
+            "all_players": all_players,
+            "selected": selected_usernames,
+            "form_num_teams": num_teams,
+            "form_num_swaps": num_swaps,
+            "result": result,
+            "error": None,
         },
     )
 

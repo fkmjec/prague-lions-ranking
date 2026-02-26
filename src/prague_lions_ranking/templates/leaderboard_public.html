@@ -6,6 +6,7 @@
 
 {% block content %}
 <div class="container">
+    <p class="welcome-greeting">Welcome to PATRIC, {{ user.username }}!</p>
     <div class="card">
         <h2>Your Rating History</h2>
         <div id="chart-not-computed" class="chart-empty" style="display:none;">
@@ -26,6 +27,42 @@
         </div>
         {% endif %}
     </div>
+
+    {% if player_stats %}
+    <div class="card">
+        <h2>Your Stats</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-value">{{ player_stats.games }}</span>
+                <span class="stat-label">Games</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ player_stats.practices }}</span>
+                <span class="stat-label">Practices</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ player_stats.wins }}</span>
+                <span class="stat-label">Wins</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ player_stats.losses }}</span>
+                <span class="stat-label">Losses</span>
+            </div>
+            {% if player_stats.draws > 0 %}
+            <div class="stat-item">
+                <span class="stat-value">{{ player_stats.draws }}</span>
+                <span class="stat-label">Draws</span>
+            </div>
+            {% endif %}
+            {% if player_stats.peak_ts is not none %}
+            <div class="stat-item">
+                <span class="stat-value">{{ player_stats.peak_ts }}</span>
+                <span class="stat-label">Peak TrueSkill<br><span class="stat-sublabel">{{ player_stats.peak_date }}</span></span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     {% if most_played or best_teammates or worst_teammate %}
     <div class="card">

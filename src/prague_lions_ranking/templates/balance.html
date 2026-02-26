@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Team Drafter - Prague Lions Ranking{% endblock %}
+
+{% block page_title %}Team Drafter{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Team Drafter</h2>
+        <p class="balance-desc">Select the player pool, choose the number of teams, and let the algorithm find the
+            fairest split by TrueSkill. It starts by a random division and then performs the specified number of random
+            swaps, only accepting the new state if a better division is found.</p>
+
+        {% if error %}
+        <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <form method="POST" action="/balance">
+            <div class="balance-settings">
+                <div class="form-group">
+                    <label for="num_teams">Number of teams</label>
+                    <input type="number" class="balance-num-input" id="num_teams" name="num_teams" min="2" max="20"
+                        value="{{ form_num_teams or 2 }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="num_swaps">Number of Swaps <span class="balance-label-note">(max 100 000)</span></label>
+                    <input type="number" class="balance-num-input" id="num_swaps" name="num_swaps" min="1" max="100000"
+                        value="{{ form_num_swaps or 10000 }}">
+                </div>
+            </div>
+
+            <div class="balance-pool-header">
+                <h3>Player Pool</h3>
+            </div>
+            <div class="balance-player-grid">
+                {% for player in all_players %}
+                <label class="balance-player-chip">
+                    <input type="checkbox" name="players" value="{{ player.username }}" {% if player.username in
+                        (selected or []) %}checked{% endif %}>
+                    <span class="balance-chip-inner">
+                        <span class="balance-chip-name">{{ player.username }}</span>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div class="form-actions">
+                <button type="submit">Balance</button>
+                <button type="button" class="btn-cancel" id="select-all-btn">Select all</button>
+            </div>
+        </form>
+    </div>
+
+    {% if result %}
+    <div class="card">
+        <div class="balance-result-header">
+            <span class="balance-objective-badge">Score of this partition: {{ "%.2f"|format(result.objective) }}</span>
+        </div>
+        <p class="balance-objective-note">Lower score = more balanced. Re-submit to try a different random run. Score is
+            the sum of squares of TrueSkill differences between teams. </p>
+
+        <div class="balance-teams-grid">
+            {% for team in result.teams %}
+            <div class="balance-team-card">
+                <div class="balance-team-title">Team {{ loop.index }}</div>
+                {% for player in team.players %}
+                <div class="balance-team-row">
+                    <span class="balance-team-player">{{ player.username }}</span>
+                    <span class="balance-chip-skill">{{ player.true_skill }}</span>
+                </div>
+                {% endfor %}
+                <div class="balance-team-avg">Average TrueSkill: {{ team.avg_skill }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Toggle "select all / deselect all"
+    (function () {
+        var btn = document.getElementById('select-all-btn');
+        if (!btn) return;
+        var boxes = document.querySelectorAll('input[name="players"]');
+
+        function updateLabel() {
+            var allChecked = Array.from(boxes).every(function (b) { return b.checked; });
+            btn.textContent = allChecked ? 'Deselect all' : 'Select all';
+        }
+
+        btn.addEventListener('click', function () {
+            var allChecked = Array.from(boxes).every(function (b) { return b.checked; });
+            boxes.forEach(function (b) { b.checked = !allChecked; });
+            updateLabel();
+        });
+
+        boxes.forEach(function (b) { b.addEventListener('change', updateLabel); });
+        updateLabel();
+    })();
+</script>
+{% endblock %}

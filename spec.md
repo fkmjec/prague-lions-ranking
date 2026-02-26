@@ -52,7 +52,5 @@ Admins are not ranked and do not appear in the player pool.
 ## Future / Nice-to-Have
 
 - Seasons with per-season leaderboards (plus all-time view)
-- Team Drafter: simulated annealing to escape local optima
-- Team Drafter: multi-start (run N times, return global best)
-- Player profile pages with rating history chart
-- Links to frisbee strategy / know-how resources
+- Team Drafter: simulated annealing to escape local optima+perhaps try evolution algorithms?
+- Add game types to matches and add stats per game type.

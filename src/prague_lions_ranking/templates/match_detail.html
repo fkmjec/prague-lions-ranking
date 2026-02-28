@@ -117,13 +117,13 @@
                 <div class="score-inputs">
                     <div class="score-input-group">
                         <label>Team A</label>
-                        <input type="number" name="score_team_a" min="0" value="{{ match.score_team_a or '' }}"
+                        <input type="number" name="score_team_a" min="0" value="{{ match.score_team_a if match.score_team_a is not none else 0 }}"
                             required>
                     </div>
                     <span class="score-separator">:</span>
                     <div class="score-input-group">
                         <label>Team B</label>
-                        <input type="number" name="score_team_b" min="0" value="{{ match.score_team_b or '' }}"
+                        <input type="number" name="score_team_b" min="0" value="{{ match.score_team_b if match.score_team_b is not none else 0 }}"
                             required>
                     </div>
                 </div>

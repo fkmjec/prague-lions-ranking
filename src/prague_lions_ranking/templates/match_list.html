@@ -102,9 +102,9 @@
                                 {% endif %}
                             {% elif is_admin %}
                             <form class="score-form-inline" method="POST" action="/admin/matches/{{ match.id }}/score">
-                                <input type="number" name="score_team_a" min="0" required placeholder="0">
+                                <input type="number" name="score_team_a" min="0" required value="0">
                                 <span>:</span>
-                                <input type="number" name="score_team_b" min="0" required placeholder="0">
+                                <input type="number" name="score_team_b" min="0" required value="0">
                                 <button type="submit">Save</button>
                             </form>
                             {% else %}

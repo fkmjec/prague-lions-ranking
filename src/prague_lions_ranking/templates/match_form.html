@@ -17,6 +17,20 @@
                 </div>
 
                 <div class="form-group form-group--large">
+                    <label for="match_type">Type</label>
+                    <div class="match-type-row">
+                        <select id="match_type" name="match_type">
+                            <option value="Mini">Mini</option>
+                            <option value="Redzone">Redzone</option>
+                            <option value="Scrimmage">Scrimmage</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <input type="text" id="match_type_other" name="match_type_other"
+                               placeholder="Specify type…" style="display:none;" maxlength="64">
+                    </div>
+                </div>
+
+                <div class="form-group form-group--large">
                     <label for="notes">Notes (optional)</label>
                     <textarea id="notes" name="notes" placeholder="Any notes about this match..."></textarea>
                 </div>
@@ -61,4 +75,17 @@
 
 {% block scripts %}
     <script src="/static/scripts.js"></script>
+    <script>
+        (function () {
+            var sel = document.getElementById('match_type');
+            var other = document.getElementById('match_type_other');
+            function toggle() {
+                var show = sel.value === 'Other';
+                other.style.display = show ? '' : 'none';
+                other.required = show;
+            }
+            sel.addEventListener('change', toggle);
+            toggle();
+        })();
+    </script>
 {% endblock %}

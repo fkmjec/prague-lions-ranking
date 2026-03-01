@@ -37,6 +37,9 @@
         <div class="match-info">
             <div class="match-date-row">
                 <div class="match-date">{{ match.date.strftime('%Y-%m-%d') }}</div>
+                {% if match.match_type %}
+                <span class="match-type-badge">{{ match.match_type }}</span>
+                {% endif %}
                 {% if match.has_score %}
                     {% if a_won or b_won %}
                     <span class="outcome-badge outcome-win">Won</span>

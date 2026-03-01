@@ -35,6 +35,13 @@
                     <button class="filter-outcome-btn" data-outcome="draw">Draw</button>
                 </div>
                 {% endif %}
+                <div class="filter-group filter-types">
+                    <button class="filter-type-btn active" data-type="all">All</button>
+                    <button class="filter-type-btn" data-type="Mini">Mini</button>
+                    <button class="filter-type-btn" data-type="Redzone">Redzone</button>
+                    <button class="filter-type-btn" data-type="Scrimmage">Scrimmage</button>
+                    <button class="filter-type-btn" data-type="other">Other</button>
+                </div>
                 <div class="filter-group filter-dates">
                     <input type="date" id="filter-date-from" class="filter-date-input" title="From date">
                     <span class="filter-date-sep">—</span>
@@ -66,8 +73,14 @@
                          data-team-a="{{ match.team_a_players | map(attribute='username') | join('|') }}"
                          data-team-b="{{ match.team_b_players | map(attribute='username') | join('|') }}"
                          data-date="{{ match.date.strftime('%Y-%m-%d') }}"
-                         data-outcome="{{ ns.outcome }}">
-                        <div class="match-date">{{ match.date.strftime('%Y-%m-%d') }}</div>
+                         data-outcome="{{ ns.outcome }}"
+                         data-type="{{ match.match_type or '' }}">
+                        <div class="match-date">
+                            {{ match.date.strftime('%Y-%m-%d') }}
+                            {% if match.match_type %}
+                            <span class="match-type-badge">{{ match.match_type }}</span>
+                            {% endif %}
+                        </div>
                         <div class="match-teams">
                             <div class="team">
                                 <div class="team-label">Team A</div>
@@ -152,9 +165,12 @@
     var noResults      = document.getElementById('filter-no-results');
     var matchItems     = document.querySelectorAll('.match-item');
     var outcomeBtns    = document.querySelectorAll('.filter-outcome-btn');
+    var typeBtns       = document.querySelectorAll('.filter-type-btn');
     var isAdmin        = {{ 'true' if is_admin else 'false' }};
     var currentUser    = {{ user.username | tojson }};
     var activeOutcome  = 'all';
+    var activeType     = 'all';
+    var standardTypes  = new Set(['Mini', 'Redzone', 'Scrimmage']);
 
     // Populate datalist from rendered match data
     var playerSet = new Set();
@@ -175,6 +191,16 @@
             outcomeBtns.forEach(function(b) { b.classList.remove('active'); });
             btn.classList.add('active');
             activeOutcome = btn.dataset.outcome;
+            applyFilters();
+        });
+    });
+
+    // Type toggle buttons
+    typeBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            typeBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            activeType = btn.dataset.type;
             applyFilters();
         });
     });
@@ -219,6 +245,16 @@
                 show = outcome === activeOutcome;
             }
 
+            // Type filter
+            if (show && activeType !== 'all') {
+                var itemType = item.dataset.type;
+                if (activeType === 'other') {
+                    show = !standardTypes.has(itemType);
+                } else {
+                    show = itemType === activeType;
+                }
+            }
+
             // Date range
             if (show && dateFrom) show = date >= dateFrom;
             if (show && dateTo)   show = date <= dateTo;
@@ -244,6 +280,10 @@
         var allBtn = document.querySelector('.filter-outcome-btn[data-outcome="all"]');
         if (allBtn) allBtn.classList.add('active');
         activeOutcome = 'all';
+        typeBtns.forEach(function(b) { b.classList.remove('active'); });
+        var allTypeBtn = document.querySelector('.filter-type-btn[data-type="all"]');
+        if (allTypeBtn) allTypeBtn.classList.add('active');
+        activeType = 'all';
         applyFilters();
     });
 })();

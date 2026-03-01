@@ -386,10 +386,15 @@ async def match_form(
     )
 
 
+STANDARD_MATCH_TYPES = {"Mini", "Redzone", "Scrimmage"}
+
+
 @router.post("/admin/matches")
 async def create_match(
     request: Request,
     match_date: str = Form(...),
+    match_type: str = Form("Mini"),
+    match_type_other: str = Form(""),
     notes: str = Form(""),
     team_a_players: str = Form(...),
     team_b_players: str = Form(...),
@@ -410,8 +415,12 @@ async def create_match(
     if not team_a_ids or not team_b_ids:
         raise HTTPException(status_code=400, detail="Both teams must have at least one player")
 
+    final_type = match_type_other.strip() if match_type == "Other" else match_type
+    if not final_type:
+        final_type = "Other"
+
     # Create the match with temporary ordering (will be fixed below)
-    match = Match(date=match_date_parsed, ordering=0, notes=notes if notes else None)
+    match = Match(date=match_date_parsed, ordering=0, match_type=final_type, notes=notes if notes else None)
     db.add(match)
     db.flush()
 

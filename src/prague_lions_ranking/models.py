@@ -47,6 +47,7 @@ class Match(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False)
     ordering = Column(Integer, nullable=False, index=True)
+    match_type = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     score_team_a = Column(Integer, nullable=True)
     score_team_b = Column(Integer, nullable=True)

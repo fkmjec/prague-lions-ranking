@@ -13,6 +13,9 @@
                 <a href="/admin/matches/new" class="btn-new">+ New Match</a>
                 {% endif %}
             </div>
+            {% if not is_admin %}
+            <p class="calc-note">Showing matches you participated in. Use the player search to filter by a teammate or opponent.</p>
+            {% endif %}
 
             <!-- Filter bar -->
             <div class="match-filter-bar">

@@ -760,6 +760,78 @@ async def my_rating_history(
     return JSONResponse(content=history)
 
 
+@router.get("/admin/network", response_class=HTMLResponse)
+async def player_network(
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    from collections import defaultdict
+    from itertools import combinations
+
+    matches = (
+        db.query(Match)
+        .filter(Match.score_team_a.isnot(None), Match.score_team_b.isnot(None))
+        .all()
+    )
+
+    edge_data = defaultdict(lambda: {"games": 0, "wins": 0})
+    player_ids_seen = set()
+
+    for match in matches:
+        a_won = match.score_team_a > match.score_team_b
+        b_won = match.score_team_b > match.score_team_a
+
+        team_a_ids = [mp.user_id for mp in match.players if mp.team == Team.TEAM_A]
+        team_b_ids = [mp.user_id for mp in match.players if mp.team == Team.TEAM_B]
+
+        for team_ids, won in [(team_a_ids, a_won), (team_b_ids, b_won)]:
+            player_ids_seen.update(team_ids)
+            for u, v in combinations(sorted(team_ids), 2):
+                edge_data[(u, v)]["games"] += 1
+                if won:
+                    edge_data[(u, v)]["wins"] += 1
+
+    players = (
+        db.query(User).filter(User.id.in_(player_ids_seen)).all()
+        if player_ids_seen
+        else []
+    )
+
+    nodes = [
+        {
+            "id": p.id,
+            "name": p.username,
+            "true_skill": round(p.true_skill, 2) if p.true_skill is not None else None,
+            "practices": p.number_of_practices or 0,
+        }
+        for p in players
+    ]
+
+    edges = [
+        {
+            "source": u,
+            "target": v,
+            "games": data["games"],
+            "wins": data["wins"],
+            "win_rate": round(data["wins"] / data["games"], 3),
+        }
+        for (u, v), data in edge_data.items()
+    ]
+
+    graph_data = json.dumps({"nodes": nodes, "edges": edges})
+
+    return templates.TemplateResponse(
+        request,
+        "network_graph.html",
+        {
+            "user": admin,
+            "is_admin": True,
+            "graph_data": graph_data,
+        },
+    )
+
+
 @router.get("/api/users/search")
 async def search_users(
     q: str = Query("", min_length=0),

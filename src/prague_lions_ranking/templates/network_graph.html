@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+
+{% block title %}Player Network – Prague Lions Ranking{% endblock %}
+
+{% block page_title %}Player Network{% endblock %}
+
+{% block content %}
+<div class="container container--wide">
+    <div class="card">
+        <div class="card-header">
+            <h2>Player Connection Graph</h2>
+        </div>
+        <p class="calc-note">
+            Click a node to exclude/restore it. Drag to pin a node in place.
+            This module is best enjoyed on PC or any large screen.
+        </p>
+
+        <div class="network-controls">
+            <div class="network-control-group">
+                <label class="network-control-label" for="min-games">
+                    Min. games together: <span id="min-games-value">1</span>
+                </label>
+                <input type="range" id="min-games" min="1" value="1" class="network-slider">
+            </div>
+            <div class="network-control-group">
+                <label class="network-control-label" for="min-practices">
+                    Min. practices: <span id="min-practices-value">1</span>
+                </label>
+                <input type="range" id="min-practices" min="1" value="1" class="network-slider">
+            </div>
+            <div class="network-legend">
+                <div id="network-winrate-legend">
+                    <div class="legend-item">
+                        <div class="legend-swatch" style="background: #081d58;"></div>
+                        <span>High win rate</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-swatch" style="background: #edf8b1;"></div>
+                        <span>Low win rate</span>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-edge legend-edge--thin"></div>
+                    <span>Few games</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-edge legend-edge--thick"></div>
+                    <span>Many games</span>
+                </div>
+            </div>
+            <div class="network-control-group">
+                <button type="button" id="network-color-btn" class="btn-cancel">Hide win rate colors</button>
+                <button type="button" id="network-size-btn" class="btn-cancel">Hide TrueSkill sizes</button>
+            </div>
+        </div>
+
+        <div id="network-graph-container">
+            <svg id="network-svg"></svg>
+        </div>
+
+        <div class="network-player-pool">
+            <div class="balance-pool-header">
+                <h3>Players</h3>
+                <button type="button" id="network-toggle-all" class="btn-cancel">Deselect all</button>
+            </div>
+            <div class="balance-player-grid" id="network-player-grid"></div>
+        </div>
+    </div>
+</div>
+
+<div id="network-tooltip" class="network-tooltip"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+    (function () {
+        var graphData = {{ graph_data | safe
+    }};
+    var nodes = graphData.nodes.map(function (d) { return Object.assign({}, d); });
+    var edges = graphData.edges.map(function (d) { return Object.assign({}, d); });
+
+    var container = document.getElementById('network-graph-container');
+
+    if (nodes.length === 0) {
+        container.innerHTML = '<p style="padding:2rem;text-align:center;color:var(--gray-500);">No scored matches yet. Add some matches and set scores first.</p>';
+        return;
+    }
+
+    var width = container.clientWidth;
+    var height = 560;
+
+    var svg = d3.select('#network-svg')
+        .attr('width', width)
+        .attr('height', height);
+
+    var g = svg.append('g');
+    svg.call(
+        d3.zoom()
+            .scaleExtent([0.2, 4])
+            .on('zoom', function (event) { g.attr('transform', event.transform); })
+    );
+
+    // Scales
+    var tsVals = nodes.map(function (d) { return d.true_skill; }).filter(function (v) { return v !== null; });
+    var tsMin = tsVals.length ? d3.min(tsVals) : 0;
+    var tsMax = tsVals.length ? d3.max(tsVals) : 25;
+
+    var nodeRadius = d3.scaleSqrt()
+        .domain([tsMin, tsMax])
+        .range([9, 24])
+        .clamp(true);
+
+    var gamesMax = d3.max(edges, function (d) { return d.games; }) || 1;
+    var practicesMax = d3.max(nodes, function (d) { return d.practices || 0; }) || 1;
+
+    var edgeWidth = d3.scaleLinear()
+        .domain([1, gamesMax])
+        .range([1.5, 9])
+        .clamp(true);
+
+    var edgeColor = d3.scaleSequential(d3.interpolateYlGnBu).domain([-0.15, 1]);
+
+    // State
+    var hiddenByClick = new Set();
+    var dragDist = 0;
+    var colorEncodingOn = true;
+    var sizeEncodingOn = true;
+    var FLAT_R = 14;
+
+    // Force simulation
+    var simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(edges).id(function (d) { return d.id; }).distance(130))
+        .force('charge', d3.forceManyBody().strength(-280))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collide', d3.forceCollide().radius(function (d) {
+            return nodeRadius(d.true_skill !== null ? d.true_skill : tsMin) + 10;
+        }));
+
+    // Draw edges
+    var link = g.append('g')
+        .attr('class', 'network-edges')
+        .selectAll('line')
+        .data(edges)
+        .join('line')
+        .attr('stroke', function (d) { return edgeColor(d.win_rate); })
+        .attr('stroke-width', function (d) { return edgeWidth(d.games); })
+        .attr('stroke-opacity', 0.75)
+        .attr('stroke-linecap', 'round')
+        .style('cursor', 'default');
+
+    // Draw nodes
+    var node = g.append('g')
+        .attr('class', 'network-nodes')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .style('cursor', 'pointer')
+        .call(d3.drag()
+            .on('start', function (event, d) {
+                dragDist = 0;
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x; d.fy = d.y;
+            })
+            .on('drag', function (event, d) {
+                dragDist += Math.hypot(event.dx, event.dy);
+                d.fx = event.x; d.fy = event.y;
+            })
+            .on('end', function (event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                // Keep fx/fy set — node stays pinned where dropped
+            })
+        );
+
+    node.append('circle')
+        .attr('r', function (d) { return nodeRadius(d.true_skill !== null ? d.true_skill : tsMin); })
+        .attr('fill', '#1565c0')
+        .attr('stroke', '#e3f2fd')
+        .attr('stroke-width', 2);
+
+    node.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', function (d) {
+            return nodeRadius(d.true_skill !== null ? d.true_skill : tsMin) + 14;
+        })
+        .attr('font-size', '11px')
+        .attr('font-family', 'inherit')
+        .attr('fill', '#374151')
+        .attr('pointer-events', 'none')
+        .text(function (d) { return d.name; });
+
+    // Tooltip
+    var tooltip = d3.select('#network-tooltip');
+
+    node.on('mouseover', function (event, d) {
+        var ts = d.true_skill !== null ? d.true_skill.toFixed(2) : 'N/A';
+        var hint = hiddenByClick.has(d.id) ? '<br><em style="color:#9ca3af">Click to restore</em>' : '';
+        tooltip.html('<strong>' + d.name + '</strong><br>TrueSkill: ' + ts + ' &bull; Practices: ' + (d.practices || 0) + hint)
+            .style('display', 'block');
+    }).on('mousemove', function (event) {
+        tooltip.style('left', (event.clientX + 14) + 'px')
+            .style('top', (event.clientY - 40) + 'px');
+    }).on('mouseout', function () {
+        tooltip.style('display', 'none');
+    });
+
+    link.on('mouseover', function (event, d) {
+        var winPct = Math.round(d.win_rate * 100);
+        tooltip.html(
+            '<strong>' + d.source.name + ' &amp; ' + d.target.name + '</strong><br>' +
+            d.games + ' games together &bull; ' + d.wins + ' wins (' + winPct + '%)'
+        ).style('display', 'block');
+    }).on('mousemove', function (event) {
+        tooltip.style('left', (event.clientX + 14) + 'px')
+            .style('top', (event.clientY - 40) + 'px');
+    }).on('mouseout', function () {
+        tooltip.style('display', 'none');
+    });
+
+    // ── Player chip panel ─────────────────────────────────────────────────
+    var chipMap = {}; // nodeId -> checkbox element
+    var grid = document.getElementById('network-player-grid');
+    var toggleAllBtn = document.getElementById('network-toggle-all');
+    var poolSection = document.querySelector('.network-player-pool');
+
+    var sortedNodes = nodes.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+    sortedNodes.forEach(function (n) {
+        var label = document.createElement('label');
+        label.className = 'balance-player-chip';
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        chipMap[n.id] = cb;
+
+        var inner = document.createElement('span');
+        inner.className = 'balance-chip-inner';
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'balance-chip-name';
+        nameSpan.textContent = n.name;
+        inner.appendChild(nameSpan);
+
+        label.appendChild(cb);
+        label.appendChild(inner);
+        grid.appendChild(label);
+
+        cb.addEventListener('change', function () {
+            if (this.checked) { hiddenByClick.delete(n.id); }
+            else { hiddenByClick.add(n.id); }
+            syncToggleAllBtn();
+            applyFilter();
+        });
+    });
+
+    function syncToggleAllBtn() {
+        var allVisible = nodes.every(function (n) { return !hiddenByClick.has(n.id); });
+        toggleAllBtn.textContent = allVisible ? 'Deselect all' : 'Select all';
+    }
+
+    // Start with 5 randomly chosen players visible
+    if (nodes.length > 5) {
+        var shuffled = nodes.slice().sort(function () { return Math.random() - 0.5; });
+        var initialVisible = new Set(shuffled.slice(0, 5).map(function (n) { return n.id; }));
+        nodes.forEach(function (n) {
+            if (!initialVisible.has(n.id)) {
+                hiddenByClick.add(n.id);
+                chipMap[n.id].checked = false;
+            }
+        });
+        syncToggleAllBtn();
+        applyFilter();
+    }
+
+    toggleAllBtn.addEventListener('click', function () {
+        var allVisible = nodes.every(function (n) { return !hiddenByClick.has(n.id); });
+        nodes.forEach(function (n) {
+            if (allVisible) { hiddenByClick.add(n.id); chipMap[n.id].checked = false; }
+            else { hiddenByClick.delete(n.id); chipMap[n.id].checked = true; }
+        });
+        syncToggleAllBtn();
+        applyFilter();
+    });
+
+    // Click a graph node → toggle its chip and hidden set
+    node.on('click', function (event, d) {
+        if (dragDist > 5) return; // was a drag, not a click
+        tooltip.style('display', 'none');
+        if (hiddenByClick.has(d.id)) {
+            hiddenByClick.delete(d.id);
+            chipMap[d.id].checked = true;
+        } else {
+            hiddenByClick.add(d.id);
+            chipMap[d.id].checked = false;
+        }
+        syncToggleAllBtn();
+        applyFilter();
+    });
+
+    // Simulation tick
+    simulation.on('tick', function () {
+        link
+            .attr('x1', function (d) { return d.source.x; })
+            .attr('y1', function (d) { return d.source.y; })
+            .attr('x2', function (d) { return d.target.x; })
+            .attr('y2', function (d) { return d.target.y; });
+        node.attr('transform', function (d) {
+            return 'translate(' + d.x + ',' + d.y + ')';
+        });
+    });
+
+    // Filter
+    function applyFilter() {
+        var minG = +document.getElementById('min-games').value;
+        var minP = +document.getElementById('min-practices').value;
+
+        // Nodes that pass the practices slider and haven't been click-excluded
+        var active = new Set();
+        nodes.forEach(function (n) {
+            if (!hiddenByClick.has(n.id) && (n.practices || 0) >= minP) {
+                active.add(n.id);
+            }
+        });
+
+        // Nodes that have at least one qualifying edge between two active nodes
+        var hasEdge = new Set();
+        edges.forEach(function (e) {
+            var sid = e.source.id, tid = e.target.id;
+            if (e.games >= minG && active.has(sid) && active.has(tid)) {
+                hasEdge.add(sid);
+                hasEdge.add(tid);
+            }
+        });
+
+        link.attr('display', function (d) {
+            return (d.games >= minG && active.has(d.source.id) && active.has(d.target.id)) ? null : 'none';
+        });
+
+        // Click-excluded nodes: visible as small grey ghosts (so they can be clicked back)
+        // Practices-filtered nodes: fully hidden
+        node.attr('display', function (d) {
+            if (hiddenByClick.has(d.id)) return null;        // show as ghost
+            if (!active.has(d.id)) return 'none';      // filtered by practices
+            return hasEdge.has(d.id) ? null : 'none';    // filtered by games
+        });
+
+        link.attr('stroke', function (d) {
+            return colorEncodingOn ? edgeColor(d.win_rate) : '#6b7280';
+        });
+
+        var GHOST_R = 6;
+        node.select('circle')
+            .attr('r', function (d) {
+                if (hiddenByClick.has(d.id)) return GHOST_R;
+                return sizeEncodingOn ? nodeRadius(d.true_skill !== null ? d.true_skill : tsMin) : FLAT_R;
+            })
+            .attr('fill', function (d) { return hiddenByClick.has(d.id) ? '#d1d5db' : '#1565c0'; })
+            .attr('stroke', function (d) { return hiddenByClick.has(d.id) ? '#9ca3af' : '#e3f2fd'; })
+            .attr('opacity', function (d) { return hiddenByClick.has(d.id) ? 0.55 : 1; });
+
+        node.select('text')
+            .attr('dy', function (d) {
+                if (hiddenByClick.has(d.id)) return GHOST_R + 14;
+                return (sizeEncodingOn ? nodeRadius(d.true_skill !== null ? d.true_skill : tsMin) : FLAT_R) + 14;
+            })
+            .attr('opacity', function (d) { return hiddenByClick.has(d.id) ? 0 : 1; });
+    }
+
+    // Sliders
+    var sliderGames = document.getElementById('min-games');
+    var sliderPractices = document.getElementById('min-practices');
+    sliderGames.max = gamesMax;
+    sliderPractices.max = Math.max(practicesMax, 1);
+
+    sliderGames.addEventListener('input', function () {
+        document.getElementById('min-games-value').textContent = this.value;
+        applyFilter();
+    });
+    sliderPractices.addEventListener('input', function () {
+        document.getElementById('min-practices-value').textContent = this.value;
+        applyFilter();
+    });
+
+    // Encoding toggles
+    var colorBtn = document.getElementById('network-color-btn');
+    var sizeBtn = document.getElementById('network-size-btn');
+    var winrateLegend = document.getElementById('network-winrate-legend');
+
+    colorBtn.addEventListener('click', function () {
+        colorEncodingOn = !colorEncodingOn;
+        colorBtn.textContent = colorEncodingOn ? 'Hide win rate colors' : 'Show win rate colors';
+        winrateLegend.style.display = colorEncodingOn ? '' : 'none';
+        applyFilter();
+    });
+
+    sizeBtn.addEventListener('click', function () {
+        sizeEncodingOn = !sizeEncodingOn;
+        sizeBtn.textContent = sizeEncodingOn ? 'Hide TrueSkill sizes' : 'Show TrueSkill sizes';
+        applyFilter();
+    });
+}) ();
+</script>
+{% endblock %}

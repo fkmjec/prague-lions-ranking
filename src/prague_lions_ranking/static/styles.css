@@ -1919,3 +1919,98 @@ th {
 .match-type-row input[type="text"] {
     flex: 1;
 }
+
+/* Player network graph
+   ========================================================================== */
+#network-graph-container {
+    position: relative;
+    width: 100%;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+#network-svg {
+    display: block;
+    width: 100%;
+}
+
+.network-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0 0;
+}
+
+.network-control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.network-control-label {
+    font-size: 0.875rem;
+    color: var(--gray-700);
+    white-space: nowrap;
+}
+
+.network-slider {
+    width: 130px;
+    accent-color: var(--blue-600);
+    cursor: pointer;
+}
+
+.network-legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+}
+
+.legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.legend-edge {
+    width: 32px;
+    background: var(--gray-500);
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.legend-edge--thin  { height: 2px; }
+.legend-edge--thick { height: 7px; }
+
+.network-player-pool {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.network-tooltip {
+    position: fixed;
+    display: none;
+    background: rgba(17, 24, 39, 0.92);
+    color: #fff;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 9999;
+}

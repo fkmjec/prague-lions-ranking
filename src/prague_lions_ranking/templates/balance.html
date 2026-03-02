@@ -75,6 +75,13 @@
             {% endfor %}
         </div>
 
+        {% if is_admin %}
+        <form method="POST" action="/admin/pods/save-temp" style="margin-top:1.25rem;">
+            <input type="hidden" name="teams_json" value="{{ result.teams_usernames_json }}">
+            <button type="submit" class="btn-cancel">Save as temp pods</button>
+        </form>
+        {% endif %}
+
     </div>
     {% endif %}
 </div>

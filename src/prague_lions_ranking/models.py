@@ -78,3 +78,24 @@ class MatchPlayer(Base):
 
     match = relationship("Match", back_populates="players")
     user = relationship("User", back_populates="match_participations")
+
+
+class Pod(Base):
+    __tablename__ = "pods"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    players = relationship("PodPlayer", back_populates="pod", cascade="all, delete-orphan")
+
+
+class PodPlayer(Base):
+    __tablename__ = "pod_players"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pod_id = Column(Integer, ForeignKey("pods.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    pod = relationship("Pod", back_populates="players")
+    user = relationship("User")

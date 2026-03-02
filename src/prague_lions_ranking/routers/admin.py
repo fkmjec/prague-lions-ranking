@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from prague_lions_ranking.database import get_db
-from prague_lions_ranking.models import User, UserRole, Match, MatchPlayer, Team
+from prague_lions_ranking.models import User, UserRole, Match, MatchPlayer, Team, Pod, PodPlayer
 from prague_lions_ranking.rating import update_user_ratings
 from prague_lions_ranking.balance import (
     optimize_teams,
@@ -373,6 +373,16 @@ async def match_form(
         from datetime import date
         prefill_date = date.today().strftime("%Y-%m-%d")
 
+    pods = db.query(Pod).order_by(Pod.name).all()
+    pods_json = json.dumps([
+        {
+            "id": pod.id,
+            "name": pod.name,
+            "players": [{"id": pp.user.id, "username": pp.user.username} for pp in pod.players],
+        }
+        for pod in pods
+    ])
+
     return templates.TemplateResponse(
         "match_form.html",
         {
@@ -382,6 +392,7 @@ async def match_form(
             "prefill_date": prefill_date,
             "insert_before": insert_before,
             "insert_after": insert_after,
+            "pods_json": pods_json,
         },
     )
 
@@ -719,21 +730,25 @@ async def balance_compute(
     def _fmt(v: float) -> str:
         return f"{v:.1f}"
 
+    teams_data = [
+        {
+            "players": [
+                {"username": p.username, "true_skill": _fmt(p.mu - 3 * p.sigma)}
+                for p in sorted(team, key=lambda p: -(p.mu - 3 * p.sigma))
+            ],
+            "avg_skill": _fmt(
+                sum(p.mu - 3 * p.sigma for p in team) / len(team)
+            ) if team else "–",
+        }
+        for team in division.teams
+    ]
     result = {
         "objective": division.objective,
         "pair_gaps": division.pair_gaps,
-        "teams": [
-            {
-                "players": [
-                    {"username": p.username, "true_skill": _fmt(p.mu - 3 * p.sigma)}
-                    for p in sorted(team, key=lambda p: -(p.mu - 3 * p.sigma))
-                ],
-                "avg_skill": _fmt(
-                    sum(p.mu - 3 * p.sigma for p in team) / len(team)
-                ) if team else "–",
-            }
-            for team in division.teams
-        ],
+        "teams": teams_data,
+        "teams_usernames_json": json.dumps(
+            [[p["username"] for p in team["players"]] for team in teams_data]
+        ),
     }
 
     return templates.TemplateResponse(
@@ -752,6 +767,140 @@ async def balance_compute(
     )
 
 
+# ── Pods ──────────────────────────────────────────────────────────────────────
+
+def _pods_list(db: Session):
+    """Return serialised pod data for templates."""
+    pods = db.query(Pod).order_by(Pod.name).all()
+    result = []
+    for pod in pods:
+        skills = [pp.user.true_skill for pp in pod.players if pp.user.true_skill is not None]
+        avg_skill = round(sum(skills) / len(skills), 1) if skills else None
+        result.append({
+            "id": pod.id,
+            "name": pod.name,
+            "is_temp": pod.name.startswith("temp_"),
+            "players": [{"id": pp.user.id, "username": pp.user.username} for pp in pod.players],
+            "avg_skill": avg_skill,
+        })
+    return result
+
+
+@router.get("/admin/pods", response_class=HTMLResponse)
+async def pods_page(
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    all_players = db.query(User).filter(User.role == UserRole.USER).order_by(User.username).all()
+    return templates.TemplateResponse(
+        "pods.html",
+        {
+            "request": request,
+            "user": admin,
+            "is_admin": True,
+            "pods": _pods_list(db),
+            "all_players": all_players,
+        },
+    )
+
+
+@router.post("/admin/pods")
+async def create_pod(
+    pod_name: str = Form(...),
+    player_ids: str = Form("[]"),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    name = pod_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Pod name cannot be empty")
+    if db.query(Pod).filter(Pod.name == name).first():
+        raise HTTPException(status_code=400, detail="A pod with this name already exists")
+
+    ids = json.loads(player_ids) if player_ids else []
+    pod = Pod(name=name)
+    db.add(pod)
+    db.flush()
+    for user_id in ids:
+        db.add(PodPlayer(pod_id=pod.id, user_id=user_id))
+    db.commit()
+    return RedirectResponse(url="/admin/pods", status_code=status.HTTP_302_FOUND)
+
+
+@router.post("/admin/pods/delete-temp")
+async def delete_temp_pods(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    for pod in db.query(Pod).filter(Pod.name.like("temp_%")).all():
+        db.delete(pod)
+    db.commit()
+    return RedirectResponse(url="/admin/pods", status_code=status.HTTP_302_FOUND)
+
+
+@router.post("/admin/pods/save-temp")
+async def save_temp_pods(
+    teams_json: str = Form(...),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    from datetime import date
+    today = date.today().isoformat()
+    teams = json.loads(teams_json)
+    username_to_id = {u.username: u.id for u in db.query(User).filter(User.role == UserRole.USER).all()}
+
+    for i, usernames in enumerate(teams, 1):
+        base = f"temp_{today}_pod_{i}"
+        name = base
+        counter = 2
+        while db.query(Pod).filter(Pod.name == name).first():
+            name = f"{base}_{counter}"
+            counter += 1
+        pod = Pod(name=name)
+        db.add(pod)
+        db.flush()
+        for username in usernames:
+            if username in username_to_id:
+                db.add(PodPlayer(pod_id=pod.id, user_id=username_to_id[username]))
+    db.commit()
+    return RedirectResponse(url="/admin/pods", status_code=status.HTTP_302_FOUND)
+
+
+@router.post("/admin/pods/{pod_id}/rename")
+async def rename_pod(
+    pod_id: int,
+    new_name: str = Form(...),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    pod = db.query(Pod).filter(Pod.id == pod_id).first()
+    if not pod:
+        raise HTTPException(status_code=404, detail="Pod not found")
+    name = new_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Pod name cannot be empty")
+    if db.query(Pod).filter(Pod.name == name, Pod.id != pod_id).first():
+        raise HTTPException(status_code=400, detail="A pod with this name already exists")
+    pod.name = name
+    db.commit()
+    return RedirectResponse(url="/admin/pods", status_code=status.HTTP_302_FOUND)
+
+
+@router.post("/admin/pods/{pod_id}/delete")
+async def delete_pod(
+    pod_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    pod = db.query(Pod).filter(Pod.id == pod_id).first()
+    if not pod:
+        raise HTTPException(status_code=404, detail="Pod not found")
+    db.delete(pod)
+    db.commit()
+    return RedirectResponse(url="/admin/pods", status_code=status.HTTP_302_FOUND)
+
+
 @router.get("/api/my-rating-history")
 async def my_rating_history(
     user: User = Depends(require_login),
@@ -763,7 +912,7 @@ async def my_rating_history(
 @router.get("/admin/network", response_class=HTMLResponse)
 async def player_network(
     request: Request,
-    admin: User = Depends(require_admin),
+    user: User = Depends(require_login),
     db: Session = Depends(get_db),
 ):
     from collections import defaultdict
@@ -821,12 +970,14 @@ async def player_network(
 
     graph_data = json.dumps({"nodes": nodes, "edges": edges})
 
+    is_admin = user.role == UserRole.ADMIN
     return templates.TemplateResponse(
         request,
         "network_graph.html",
         {
-            "user": admin,
-            "is_admin": True,
+            "user": user,
+            "is_admin": is_admin,
+            "show_trueskill": is_admin,
             "graph_data": graph_data,
         },
     )

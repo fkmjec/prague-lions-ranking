@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Pods – Prague Lions Ranking{% endblock %}
+{% block page_title %}Pods{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    {# ── Create pod ─────────────────────────────────────────────────────── #}
+    <div class="card">
+        <h2>Create Pod</h2>
+        <p class="balance-desc">A pod is a saved group of players. Use pods to quickly pre-fill teams when creating a match.</p>
+
+        <form method="POST" action="/admin/pods" id="create-pod-form">
+            <div class="form-group">
+                <label for="pod_name">Pod name</label>
+                <input type="text" id="pod_name" name="pod_name" required maxlength="80"
+                       placeholder="e.g. Offense, Zone defense…">
+            </div>
+
+            <div class="balance-pool-header" style="margin-top: 1rem;">
+                <h3>Players</h3>
+                <button type="button" class="btn-cancel" id="pod-select-all-btn">Select all</button>
+            </div>
+            <div class="balance-player-grid" id="pod-player-grid">
+                {% for player in all_players %}
+                <label class="balance-player-chip">
+                    <input type="checkbox" name="pod_players" value="{{ player.id }}">
+                    <span class="balance-chip-inner">
+                        <span class="balance-chip-name">{{ player.username }}</span>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <input type="hidden" id="pod-player-ids" name="player_ids" value="[]">
+
+            <div class="form-actions">
+                <button type="submit">Create pod</button>
+            </div>
+        </form>
+    </div>
+
+    {# ── Existing pods ───────────────────────────────────────────────────── #}
+    <div class="card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="border:none; margin:0; padding:0;">Existing Pods</h2>
+            <form method="POST" action="/admin/pods/delete-temp"
+                  onsubmit="return confirm('Delete all temp pods?')">
+                <button type="submit" class="btn-delete btn-delete--large">Delete all temp pods</button>
+            </form>
+        </div>
+
+        {% if not pods %}
+        <p style="color:var(--gray-500); font-size:0.875rem; margin-top:0.75rem;">No pods yet.</p>
+        {% else %}
+        <div class="pod-list">
+            {% for pod in pods %}
+            <div class="pod-item {% if pod.is_temp %}pod-item--temp{% endif %}">
+                <div class="pod-header">
+                    <div class="pod-header-left">
+                        <span class="pod-name">{{ pod.name }}</span>
+                        {% if pod.avg_skill is not none %}
+                        <span class="pod-meta">Avg TrueSkill: {{ pod.avg_skill }}</span>
+                        {% else %}
+                        <span class="pod-meta">Avg TrueSkill: –</span>
+                        {% endif %}
+                    </div>
+                    <div class="pod-header-right">
+                        <form method="POST" action="/admin/pods/{{ pod.id }}/rename"
+                              class="pod-rename-form">
+                            <input type="text" name="new_name" value="{{ pod.name }}"
+                                   required maxlength="80" class="pod-rename-input">
+                            <button type="submit" class="btn-view">Rename</button>
+                        </form>
+                        <form method="POST" action="/admin/pods/{{ pod.id }}/delete"
+                              onsubmit="return confirm('Delete pod \'{{ pod.name }}\'?')">
+                            <button type="submit" class="btn-delete">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="pod-players">
+                    {% if pod.players %}
+                        {% for player in pod.players %}
+                        <span class="player-tag">{{ player.username }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color:var(--gray-400); font-size:0.8125rem;">No players</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    // Sync checkboxes → hidden JSON input on submit
+    var form = document.getElementById('create-pod-form');
+    var hiddenInput = document.getElementById('pod-player-ids');
+    form.addEventListener('submit', function () {
+        var checked = Array.from(
+            form.querySelectorAll('input[name="pod_players"]:checked')
+        ).map(function (cb) { return parseInt(cb.value); });
+        hiddenInput.value = JSON.stringify(checked);
+    });
+
+    // Select-all toggle
+    var selectAllBtn = document.getElementById('pod-select-all-btn');
+    var boxes = form.querySelectorAll('input[name="pod_players"]');
+    function updateSelectAllLabel() {
+        var all = Array.from(boxes).every(function (b) { return b.checked; });
+        selectAllBtn.textContent = all ? 'Deselect all' : 'Select all';
+    }
+    selectAllBtn.addEventListener('click', function () {
+        var all = Array.from(boxes).every(function (b) { return b.checked; });
+        boxes.forEach(function (b) { b.checked = !all; });
+        updateSelectAllLabel();
+    });
+    boxes.forEach(function (b) { b.addEventListener('change', updateSelectAllLabel); });
+    updateSelectAllLabel();
+})();
+</script>
+{% endblock %}

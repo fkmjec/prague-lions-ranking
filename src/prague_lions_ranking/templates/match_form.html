@@ -38,6 +38,11 @@
                 <div class="teams-container">
                     <div class="team-section team-a">
                         <h3>Team A</h3>
+                        <div class="pod-load-row">
+                            <select id="podSelectA" class="pod-select">
+                                <option value="">Load from pod…</option>
+                            </select>
+                        </div>
                         <div class="player-search">
                             <input type="text" id="searchTeamA" placeholder="Search players..." autocomplete="off">
                             <div id="resultsTeamA" class="search-results"></div>
@@ -49,6 +54,11 @@
 
                     <div class="team-section team-b">
                         <h3>Team B</h3>
+                        <div class="pod-load-row">
+                            <select id="podSelectB" class="pod-select">
+                                <option value="">Load from pod…</option>
+                            </select>
+                        </div>
                         <div class="player-search">
                             <input type="text" id="searchTeamB" placeholder="Search players..." autocomplete="off">
                             <div id="resultsTeamB" class="search-results"></div>
@@ -77,6 +87,7 @@
     <script src="/static/scripts.js"></script>
     <script>
         (function () {
+            // Match type toggle
             var sel = document.getElementById('match_type');
             var other = document.getElementById('match_type_other');
             function toggle() {
@@ -86,6 +97,41 @@
             }
             sel.addEventListener('change', toggle);
             toggle();
+
+            // Pod selectors
+            var pods = {{ pods_json | safe }};
+            var selA = document.getElementById('podSelectA');
+            var selB = document.getElementById('podSelectB');
+
+            pods.forEach(function (pod) {
+                var optA = document.createElement('option');
+                optA.value = pod.id;
+                optA.textContent = pod.name;
+                selA.appendChild(optA);
+
+                var optB = document.createElement('option');
+                optB.value = pod.id;
+                optB.textContent = pod.name;
+                selB.appendChild(optB);
+            });
+
+            function podById(id) {
+                return pods.find(function (p) { return p.id === id; });
+            }
+
+            selA.addEventListener('change', function () {
+                var pod = podById(parseInt(this.value));
+                if (!pod) return;
+                window.matchFormTeamA.loadPlayers(pod.players);
+                this.value = '';
+            });
+
+            selB.addEventListener('change', function () {
+                var pod = podById(parseInt(this.value));
+                if (!pod) return;
+                window.matchFormTeamB.loadPlayers(pod.players);
+                this.value = '';
+            });
         })();
     </script>
 {% endblock %}

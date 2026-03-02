@@ -93,6 +93,17 @@ function setupPlayerSearch(config) {
         }
     }
 
+    function loadPlayers(newPlayers) {
+        var otherIds = otherPlayersArray.map(function(p) { return p.id; });
+        playersArray.length = 0;
+        newPlayers.forEach(function(p) {
+            if (!otherIds.includes(p.id)) {
+                playersArray.push(p);
+            }
+        });
+        updateDisplay();
+    }
+
     // Event listeners
     searchInput.addEventListener('input', function() {
         clearTimeout(debounceTimer);
@@ -116,6 +127,8 @@ function setupPlayerSearch(config) {
             resultsDiv.classList.remove('show');
         }
     });
+
+    return { loadPlayers };
 }
 
 /**
@@ -129,7 +142,7 @@ function initMatchForm() {
     const teamAPlayers = [];
     const teamBPlayers = [];
 
-    setupPlayerSearch({
+    var teamAApi = setupPlayerSearch({
         searchInputId: 'searchTeamA',
         resultsId: 'resultsTeamA',
         playersContainerId: 'playersTeamA',
@@ -138,7 +151,7 @@ function initMatchForm() {
         otherPlayersArray: teamBPlayers
     });
 
-    setupPlayerSearch({
+    var teamBApi = setupPlayerSearch({
         searchInputId: 'searchTeamB',
         resultsId: 'resultsTeamB',
         playersContainerId: 'playersTeamB',
@@ -146,6 +159,9 @@ function initMatchForm() {
         playersArray: teamBPlayers,
         otherPlayersArray: teamAPlayers
     });
+
+    window.matchFormTeamA = teamAApi;
+    window.matchFormTeamB = teamBApi;
 
     matchForm.addEventListener('submit', function(e) {
         if (teamAPlayers.length === 0 || teamBPlayers.length === 0) {

@@ -50,11 +50,13 @@
             </div>
             <div class="network-control-group">
                 <button type="button" id="network-color-btn" class="btn-cancel">Hide win rate colors</button>
+                {% if show_trueskill %}
                 <button type="button" id="network-size-btn" class="btn-cancel">Hide TrueSkill sizes</button>
+                {% endif %}
             </div>
         </div>
 
-        <div id="network-graph-container">
+        <div id="network-graph-container" data-show-trueskill="{{ 'true' if show_trueskill else 'false' }}">
             <svg id="network-svg"></svg>
         </div>
 
@@ -124,8 +126,9 @@
     // State
     var hiddenByClick = new Set();
     var dragDist = 0;
+    var showTrueskill = container.dataset.showTrueskill === 'true';
     var colorEncodingOn = true;
-    var sizeEncodingOn = true;
+    var sizeEncodingOn = showTrueskill;   // non-admins always see uniform nodes
     var FLAT_R = 14;
 
     // Force simulation
@@ -193,9 +196,11 @@
     var tooltip = d3.select('#network-tooltip');
 
     node.on('mouseover', function (event, d) {
-        var ts = d.true_skill !== null ? d.true_skill.toFixed(2) : 'N/A';
         var hint = hiddenByClick.has(d.id) ? '<br><em style="color:#9ca3af">Click to restore</em>' : '';
-        tooltip.html('<strong>' + d.name + '</strong><br>TrueSkill: ' + ts + ' &bull; Practices: ' + (d.practices || 0) + hint)
+        var details = showTrueskill
+            ? 'TrueSkill: ' + (d.true_skill !== null ? d.true_skill.toFixed(2) : 'N/A') + ' &bull; Practices: ' + (d.practices || 0)
+            : 'Practices: ' + (d.practices || 0);
+        tooltip.html('<strong>' + d.name + '</strong><br>' + details + hint)
             .style('display', 'block');
     }).on('mousemove', function (event) {
         tooltip.style('left', (event.clientX + 14) + 'px')
@@ -393,11 +398,13 @@
         applyFilter();
     });
 
-    sizeBtn.addEventListener('click', function () {
-        sizeEncodingOn = !sizeEncodingOn;
-        sizeBtn.textContent = sizeEncodingOn ? 'Hide TrueSkill sizes' : 'Show TrueSkill sizes';
-        applyFilter();
-    });
+    if (sizeBtn) {
+        sizeBtn.addEventListener('click', function () {
+            sizeEncodingOn = !sizeEncodingOn;
+            sizeBtn.textContent = sizeEncodingOn ? 'Hide TrueSkill sizes' : 'Show TrueSkill sizes';
+            applyFilter();
+        });
+    }
 }) ();
 </script>
 {% endblock %}

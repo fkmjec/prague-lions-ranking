@@ -68,6 +68,62 @@ Open [http://localhost:8000](http://localhost:8000).
 4. Hit **Calculate Ratings** on the dashboard to recompute all TrueSkill scores
 5. Use **Team Drafter** to split a player pool into balanced teams before a session
 
+## Docker Deployment
+
+### 1. Create a `.env` file on your server
+
+```bash
+echo "SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')" > .env
+```
+
+### 2. Build and start
+
+```bash
+docker compose up -d --build
+```
+
+The container binds to `127.0.0.1:8000` only. Use Nginx (or another reverse proxy) to expose it publicly.
+
+### 3. Create the admin user
+
+```bash
+docker compose exec -it app uv run create-admin
+```
+
+### 4. Nginx reverse proxy example
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Useful commands
+
+```bash
+docker compose logs -f        # follow logs
+docker compose restart         # restart the container
+docker compose down            # stop
+docker compose up -d --build   # rebuild after code changes
+```
+
+### Database backup
+
+```bash
+docker compose cp app:/data/rankings.db ./rankings-backup.db
+```
+
+The SQLite database is stored in a Docker named volume (`app-data`) and persists across container rebuilds.
+
 ## Project Structure
 
 ```

@@ -118,7 +118,7 @@
 
     <div class="card">
         <h2>Top 10 Players</h2>
-        <p>Players ranked by TrueSkill rating (minimum 3 practices required)</p>
+        <p>Players ranked by TrueSkill rating (minimum 3 practices or 5 games required)</p>
         {% if players %}
         <table class="leaderboard-table">
             <thead>
@@ -159,7 +159,7 @@
             </tbody>
         </table>
         {% else %}
-        <p>No rankings available yet. Players need at least 2 practices to appear on the leaderboard.</p>
+        <p>No rankings available yet. Players need at least 3 practices or 5 games to appear on the leaderboard.</p>
         {% endif %}
     </div>
 </div>

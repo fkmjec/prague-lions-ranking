@@ -263,19 +263,6 @@
         toggleAllBtn.textContent = allVisible ? 'Deselect all' : 'Select all';
     }
 
-    // Start with 5 randomly chosen players visible
-    if (nodes.length > 5) {
-        var shuffled = nodes.slice().sort(function () { return Math.random() - 0.5; });
-        var initialVisible = new Set(shuffled.slice(0, 5).map(function (n) { return n.id; }));
-        nodes.forEach(function (n) {
-            if (!initialVisible.has(n.id)) {
-                hiddenByClick.add(n.id);
-                chipMap[n.id].checked = false;
-            }
-        });
-        syncToggleAllBtn();
-        applyFilter();
-    }
 
     toggleAllBtn.addEventListener('click', function () {
         var allVisible = nodes.every(function (n) { return !hiddenByClick.has(n.id); });

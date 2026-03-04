@@ -223,8 +223,7 @@ async def create_user(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    existing_user = db.query(User).filter(User.username == username).first()
-    if existing_user:
+    def _user_error(msg: str):
         users = db.query(User).all()
         return templates.TemplateResponse(
             "dashboard.html",
@@ -233,10 +232,17 @@ async def create_user(
                 "user": admin,
                 "is_admin": True,
                 "users": users,
-                "error": f"User '{username}' already exists",
+                "error": msg,
             },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+
+    if not username.isascii():
+        return _user_error(f"Username '{username}' contains non-ASCII characters. Please use only letters A–Z, digits, and standard symbols.")
+
+    existing_user = db.query(User).filter(User.username == username).first()
+    if existing_user:
+        return _user_error(f"User '{username}' already exists.")
 
     password = generate_password()
     user_role = UserRole.ADMIN if role == "admin" else UserRole.USER

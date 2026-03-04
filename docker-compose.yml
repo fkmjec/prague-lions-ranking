@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: prague-lions-ranking
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - app-data:/data
+    env_file:
+      - .env
+
+volumes:
+  app-data:

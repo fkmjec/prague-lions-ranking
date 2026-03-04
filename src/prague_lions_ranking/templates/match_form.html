@@ -119,18 +119,28 @@
                 return pods.find(function (p) { return p.id === id; });
             }
 
+            // Disable whichever pod the other team has selected
+            function syncPodDisabled() {
+                var aVal = selA.value;
+                var bVal = selB.value;
+                Array.from(selA.options).forEach(function (o) {
+                    o.disabled = o.value && o.value === bVal;
+                });
+                Array.from(selB.options).forEach(function (o) {
+                    o.disabled = o.value && o.value === aVal;
+                });
+            }
+
             selA.addEventListener('change', function () {
                 var pod = podById(parseInt(this.value));
-                if (!pod) return;
-                window.matchFormTeamA.loadPlayers(pod.players);
-                this.value = '';
+                if (pod) window.matchFormTeamA.loadPlayers(pod.players);
+                syncPodDisabled();
             });
 
             selB.addEventListener('change', function () {
                 var pod = podById(parseInt(this.value));
-                if (!pod) return;
-                window.matchFormTeamB.loadPlayers(pod.players);
-                this.value = '';
+                if (pod) window.matchFormTeamB.loadPlayers(pod.players);
+                syncPodDisabled();
             });
         })();
     </script>

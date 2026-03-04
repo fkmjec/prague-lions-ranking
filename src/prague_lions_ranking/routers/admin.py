@@ -544,10 +544,11 @@ async def public_leaderboard(
     user: User = Depends(require_login),
     db: Session = Depends(get_db),
 ):
+    from sqlalchemy import or_
     players = (
         db.query(User)
         .filter(User.true_skill.isnot(None))
-        .filter(User.number_of_practices >= 3)
+        .filter(or_(User.number_of_practices >= 3, User.number_of_games >= 5))
         .order_by(User.true_skill.desc())
         .limit(10)
         .all()

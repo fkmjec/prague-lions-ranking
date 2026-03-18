@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Seasons - Prague Lions Ranking{% endblock %}
+
+{% block page_title %}Seasons{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <p class="seasons-caption">Top 3 players of past seasons. Player skill values computed in association with the company Bolvansky Analytics.</p>
+
+        <div class="seasons-table-wrap">
+            <table class="seasons-table">
+                <thead>
+                    <tr>
+                        <th>Season</th>
+                        <th class="seasons-rank">1st</th>
+                        <th class="seasons-rank">2nd</th>
+                        <th class="seasons-rank">3rd</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="seasons-year">2025</td>
+                        <td class="seasons-player">
+                            <img src="/static/2025_1.jpg" alt="1st place token" class="season-token season-token--expandable">
+                            <span>Peli</span>
+                        </td>
+                        <td class="seasons-player">
+                            <img src="/static/2025_2.jpg" alt="2nd place token" class="season-token season-token--expandable">
+                            <span>Bolvo</span>
+                        </td>
+                        <td class="seasons-player">
+                            <img src="/static/2025_3.jpg" alt="3rd place token" class="season-token season-token--expandable">
+                            <span>JayZ</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="token-lightbox" class="token-lightbox" aria-modal="true" role="dialog">
+    <button class="token-lightbox-close" id="token-lightbox-close" aria-label="Close">&times;</button>
+    <img src="" alt="" id="token-lightbox-img" class="token-lightbox-img">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var lightbox = document.getElementById('token-lightbox');
+    var lbImg = document.getElementById('token-lightbox-img');
+    var lbClose = document.getElementById('token-lightbox-close');
+
+    document.querySelectorAll('.season-token--expandable').forEach(function (img) {
+        img.addEventListener('click', function () {
+            lbImg.classList.remove('token-lightbox-img--closing');
+            lbImg.src = this.src;
+            lbImg.alt = this.alt;
+            lightbox.classList.add('token-lightbox--open');
+            requestAnimationFrame(function () {
+                lightbox.classList.add('token-lightbox--visible');
+            });
+        });
+    });
+
+    function closeLightbox() {
+        lbImg.classList.add('token-lightbox-img--closing');
+        lightbox.classList.remove('token-lightbox--visible');
+        lbImg.addEventListener('animationend', function handler() {
+            lightbox.classList.remove('token-lightbox--open');
+            lbImg.src = '';
+            lbImg.classList.remove('token-lightbox-img--closing');
+            lbImg.removeEventListener('animationend', handler);
+        });
+    }
+
+    lbClose.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', function (e) {
+        if (e.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeLightbox();
+    });
+})();
+</script>
+{% endblock %}

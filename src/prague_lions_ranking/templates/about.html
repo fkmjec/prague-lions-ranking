@@ -55,14 +55,51 @@
             Motion.
         </p>
 
+        <h2>Practical Notes</h2>
+        <p>
+            <strong>Only the result counts.</strong> The algorithm has no knowledge of the score, only the Win/Loss/Draw
+            matters.
+        </p>
+        <p>
+            <strong>Smaller teams calibrate faster.</strong> In a minis game each player has a larger
+            influence on the outcome, so the algorithm can extract more information about individual skill from each
+            result. In a 7v7 game, the calibration is much slower.
+        </p>
+        <p>
+            <strong>Players' sigma (uncertainty) depends on the opponents' sigma.</strong> Facing a low-sigma player
+            gives the
+            algorithm an accurate reference point, so your own sigma decreases more after the game (regardless of the
+            result). Facing a new, high sigma player, provides less information, so the effect on your own sigma is
+            lower. This also means the algorithm works best when the pool of players is not constantly changing.
+        </p>
+        <p>
+            <strong>Early losses can still raise your TrueSkill.</strong> True skill is calculated as mu minus 3 sigma.
+            When a player is new, sigma is large, keeping your visible rating low.
+            Even a loss forces the uncertainty down, and so even a loss can improve the overall TrueSkill value early on
+            (it is much less likely to happen after some calibration).
+        </p>
+
+        <h2>Disclaimer</h2>
+        <p>
+            Luck and many other factors will always play a role in team sport and the algorithm and app are admittedly
+            imperfect, so PATRIC is more an effort for gamification and rising the
+            stakes than a super-accurate estimation of how good players actually are.
+        </p>
+
+        <h2>A Note on the Code</h2>
+        <p>
+            The codebase for this project was written largely with the assistance of
+            <a href="https://claude.ai/claude-code" target="_blank" rel="noopener">Claude Code</a>.
+        </p>
+
         <h2>Contributing &amp; Bug Reports</h2>
         <p>
-            Found a bug or have a suggestion? Open a pull request or issue on the
+            Found a bug or have a cool idea? Open a pull request or issue on the
             <a href="https://github.com/fkmjec/prague-lions-ranking" target="_blank" rel="noopener">GitHub
                 repository</a>.
         </p>
 
-        <h2>Literature</h2>
+        <h2>Further reading</h2>
         <ul class="about-literature">
             <li>
                 <a href="https://github.com/fkmjec/prague-lions-ranking" target="_blank" rel="noopener">GitHub Repo of

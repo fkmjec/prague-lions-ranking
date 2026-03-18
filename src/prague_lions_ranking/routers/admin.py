@@ -548,7 +548,7 @@ async def public_leaderboard(
     players = (
         db.query(User)
         .filter(User.true_skill.isnot(None))
-        .filter(or_(User.number_of_practices >= 3, User.number_of_games >= 5))
+        .filter(or_(User.number_of_practices >= 2, User.number_of_games >= 3))
         .order_by(User.true_skill.desc())
         .limit(10)
         .all()
@@ -645,6 +645,21 @@ async def about(
 ):
     return templates.TemplateResponse(
         "about.html",
+        {
+            "request": request,
+            "user": user,
+            "is_admin": user.role == UserRole.ADMIN,
+        },
+    )
+
+
+@router.get("/seasons", response_class=HTMLResponse)
+async def seasons(
+    request: Request,
+    user: User = Depends(require_login),
+):
+    return templates.TemplateResponse(
+        "seasons.html",
         {
             "request": request,
             "user": user,

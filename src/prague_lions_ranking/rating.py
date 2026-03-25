@@ -126,9 +126,11 @@ def calculate_ratings(db: Session) -> dict[str, dict]:
 
     for match in matches:
         teams, results, time = match_to_ttt_format(match)
-        compositions.append(teams)
-        results_list.append(results)
-        times.append(time)
+        weight = getattr(match, "weight", 1) or 1
+        for _ in range(weight):
+            compositions.append(teams)
+            results_list.append(results)
+            times.append(time)
 
     # Create TTT History and compute ratings
     history = History(
@@ -203,9 +205,11 @@ def calculate_all_rating_histories(
 
     for match in all_matches:
         teams, results, time = match_to_ttt_format(match)
-        compositions.append(teams)
-        results_list.append(results)
-        times.append(time)
+        weight = getattr(match, "weight", 1) or 1
+        for _ in range(weight):
+            compositions.append(teams)
+            results_list.append(results)
+            times.append(time)
 
         h = History(
             composition=compositions,

@@ -83,6 +83,9 @@
                             {% if match.match_type %}
                             <span class="match-type-badge">{{ match.match_type }}</span>
                             {% endif %}
+                            {% if match.weight is defined and match.weight and match.weight > 1 %}
+                            <span class="match-type-badge">{{ match.weight }}×</span>
+                            {% endif %}
                         </div>
                         <div class="match-teams">
                             <div class="team">

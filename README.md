@@ -34,6 +34,10 @@ Each player has three values:
 
 Using μ − 3σ means a player needs consistent performance to climb; high uncertainty drags the score down.
 
+### Match Weight
+
+Each match has an integer **weight** (default 1). A match with weight N is entered N times into the TTT computation, amplifying its effect on ratings. It still counts as a single game in all other statistics (game count, teammate stats, attendance). This is intended to give more significance to longer formats (e.g. a full scrimmage) over a single round of minis.
+
 ### Key parameters
 
 **`p_draw`** — probability of a draw. Ultimate doesn't allow draws in regulation, but ranked mini-games sometimes end equal. TTT uses this to weight draw outcomes. We set it from the observed draw frequency across all recorded games.

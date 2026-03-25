@@ -51,6 +51,7 @@ class Match(Base):
     notes = Column(Text, nullable=True)
     score_team_a = Column(Integer, nullable=True)
     score_team_b = Column(Integer, nullable=True)
+    weight = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     players = relationship("MatchPlayer", back_populates="match", cascade="all, delete-orphan")

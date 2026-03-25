@@ -412,6 +412,7 @@ async def create_match(
     match_date: str = Form(...),
     match_type: str = Form("Mini"),
     match_type_other: str = Form(""),
+    weight: int = Form(1),
     notes: str = Form(""),
     team_a_players: str = Form(...),
     team_b_players: str = Form(...),
@@ -436,8 +437,11 @@ async def create_match(
     if not final_type:
         final_type = "Other"
 
+    # Clamp weight to 1–3
+    weight = max(1, min(3, weight))
+
     # Create the match with temporary ordering (will be fixed below)
-    match = Match(date=match_date_parsed, ordering=0, match_type=final_type, notes=notes if notes else None)
+    match = Match(date=match_date_parsed, ordering=0, match_type=final_type, notes=notes if notes else None, weight=weight)
     db.add(match)
     db.flush()
 
@@ -484,6 +488,7 @@ async def update_match_score(
     match_id: int,
     score_team_a: int = Form(...),
     score_team_b: int = Form(...),
+    weight: int = Form(None),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -493,6 +498,8 @@ async def update_match_score(
 
     match.score_team_a = score_team_a
     match.score_team_b = score_team_b
+    if weight is not None:
+        match.weight = max(1, min(3, weight))
     db.commit()
 
     return RedirectResponse(url="/matches", status_code=status.HTTP_302_FOUND)

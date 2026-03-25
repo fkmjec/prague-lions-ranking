@@ -64,7 +64,7 @@
     </div>
     {% endif %}
 
-    {% if most_played or best_teammates or worst_teammate %}
+    {% if most_played or best_teammates %}
     <div class="card">
         <h2>Teammate Stats</h2>
 
@@ -76,7 +76,7 @@
                 <div class="teammate-row">
                     <span class="teammate-name">{{ t.teammate }}</span>
                     <span class="teammate-games">{{ t.games }} games</span>
-                    <span class="teammate-winpct {% if t.win_pct >= 50 %}delta-pos{% else %}delta-neg{% endif %}">{{
+                    <span class="teammate-winpct {% if t.win_pct == 0 %}delta-neg{% else %}delta-pos{% endif %}">{{
                         t.win_pct }}% wins</span>
                 </div>
                 {% endfor %}
@@ -92,22 +92,7 @@
                 <div class="teammate-row">
                     <span class="teammate-name">{{ t.teammate }}</span>
                     <span class="teammate-games">{{ t.games }} games</span>
-                    <span class="teammate-winpct delta-pos">{{ t.win_pct }}% wins</span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        {% if worst_teammate %}
-        <div class="teammate-section">
-            <h3>Worst Teammate <span class="teammate-note">(min. 3 games together)</span></h3>
-            <div class="teammate-list">
-                {% for t in worst_teammate %}
-                <div class="teammate-row">
-                    <span class="teammate-name">{{ t.teammate }}</span>
-                    <span class="teammate-games">{{ t.games }} games</span>
-                    <span class="teammate-winpct delta-neg">{{ t.win_pct }}% wins</span>
+                    <span class="teammate-winpct {% if t.win_pct == 0 %}delta-neg{% else %}delta-pos{% endif %}">{{ t.win_pct }}% wins</span>
                 </div>
                 {% endfor %}
             </div>

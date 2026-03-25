@@ -21,6 +21,7 @@ from prague_lions_ranking.auth import (
     create_access_token,
     get_password_hash,
     generate_password,
+    verify_password,
     require_admin,
     require_login,
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -371,6 +372,51 @@ async def delete_user(
     return response
 
 
+@router.get("/users/change-password", response_class=HTMLResponse)
+async def change_password_page(
+    request: Request,
+    user: User = Depends(require_login),
+):
+    return templates.TemplateResponse(
+        "change_password.html",
+        {"request": request, "is_admin": user.role == UserRole.ADMIN},
+    )
+
+
+@router.post("/users/change-password")
+async def change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    user: User = Depends(require_login),
+    db: Session = Depends(get_db),
+):
+    is_admin = user.role == UserRole.ADMIN
+
+    def error(msg):
+        return templates.TemplateResponse(
+            "change_password.html",
+            {"request": request, "is_admin": is_admin, "error": msg},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not verify_password(current_password, user.hashed_password):
+        return error("Current password is incorrect.")
+    if new_password != confirm_password:
+        return error("New passwords do not match.")
+    if len(new_password) < 8:
+        return error("New password must be at least 8 characters.")
+
+    user.hashed_password = get_password_hash(new_password)
+    db.commit()
+
+    return templates.TemplateResponse(
+        "change_password.html",
+        {"request": request, "is_admin": is_admin, "success": True},
+    )
+
+
 @router.get("/admin/matches/new", response_class=HTMLResponse)
 async def match_form(
     request: Request,
@@ -605,7 +651,6 @@ async def public_leaderboard(
     most_played = sorted(teammate_data, key=lambda x: -x["games"])[:3]
     eligible = [t for t in teammate_data if t["games"] >= 3]
     best_teammates = sorted(eligible, key=lambda x: -x["win_pct"])[:3]
-    worst_teammate = sorted(eligible, key=lambda x: x["win_pct"])[:1]
 
     # Compute personal stats summary
     player_stats = None
@@ -641,7 +686,6 @@ async def public_leaderboard(
             "rating_history_json": rating_history_json,
             "most_played": most_played,
             "best_teammates": best_teammates,
-            "worst_teammate": worst_teammate,
             "player_stats": player_stats,
         },
     )

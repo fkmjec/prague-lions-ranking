@@ -976,11 +976,12 @@ async def player_network(
         else []
     )
 
+    is_admin = user.role == UserRole.ADMIN
     nodes = [
         {
             "id": p.id,
             "name": p.username,
-            "true_skill": round(p.true_skill, 2) if p.true_skill is not None else None,
+            "true_skill": round(p.true_skill, 2) if (is_admin and p.true_skill is not None) else None,
             "practices": p.number_of_practices or 0,
         }
         for p in players
@@ -999,7 +1000,6 @@ async def player_network(
 
     graph_data = json.dumps({"nodes": nodes, "edges": edges})
 
-    is_admin = user.role == UserRole.ADMIN
     return templates.TemplateResponse(
         request,
         "network_graph.html",

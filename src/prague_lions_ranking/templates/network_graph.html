@@ -175,8 +175,12 @@
             })
         );
 
+    function r(d) {
+        return sizeEncodingOn ? nodeRadius(d.true_skill !== null ? d.true_skill : tsMin) : FLAT_R;
+    }
+
     node.append('circle')
-        .attr('r', function (d) { return nodeRadius(d.true_skill !== null ? d.true_skill : tsMin); })
+        .attr('r', function (d) { return r(d); })
         .attr('fill', '#1565c0')
         .attr('stroke', '#e3f2fd')
         .attr('stroke-width', 2);
@@ -184,7 +188,7 @@
     node.append('text')
         .attr('text-anchor', 'middle')
         .attr('dy', function (d) {
-            return nodeRadius(d.true_skill !== null ? d.true_skill : tsMin) + 14;
+            return r(d) + 14;
         })
         .attr('font-size', '11px')
         .attr('font-family', 'inherit')

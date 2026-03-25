@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from prague_lions_ranking.database import get_db
-from prague_lions_ranking.models import User, UserRole, Match, MatchPlayer, Team, Pod, PodPlayer
+from prague_lions_ranking.models import User, UserRole, Match, MatchPlayer, Team, TEAM_BY_INDEX, Pod, PodPlayer
 from prague_lions_ranking.rating import update_user_ratings
 from prague_lions_ranking.balance import (
     optimize_teams,
@@ -184,20 +184,34 @@ async def match_detail(
                     return m
         return None
 
-    team_a_ts_before = []
-    team_b_ts_before = []
-    for player in match.team_a_players:
-        stats = _find_match_stats(player, match_id)
-        if stats and "ts_after" in stats:
-            team_a_ts_before.append(stats["ts_after"] - stats["delta"])
-    for player in match.team_b_players:
-        stats = _find_match_stats(player, match_id)
-        if stats and "ts_after" in stats:
-            team_b_ts_before.append(stats["ts_after"] - stats["delta"])
+    # Build per-team avg TrueSkill before this match
+    num_teams = match.num_teams
+    team_avg_before = []
+    for idx in range(num_teams):
+        ts_before = []
+        for player in match.get_team_players(idx):
+            stats = _find_match_stats(player, match_id)
+            if stats and "ts_after" in stats:
+                ts_before.append(stats["ts_after"] - stats["delta"])
+        team_avg_before.append(round(sum(ts_before) / len(ts_before), 2) if ts_before else None)
 
-    team_a_avg_before = round(sum(team_a_ts_before) / len(team_a_ts_before), 2) if team_a_ts_before else None
-    team_b_avg_before = round(sum(team_b_ts_before) / len(team_b_ts_before), 2) if team_b_ts_before else None
     user_match_stats = _find_match_stats(user, match_id)
+
+    # For backward compat with 2-team template
+    team_a_avg_before = team_avg_before[0] if len(team_avg_before) > 0 else None
+    team_b_avg_before = team_avg_before[1] if len(team_avg_before) > 1 else None
+
+    # Build teams data for template
+    teams_data = []
+    scores = match.parsed_scores
+    for idx in range(num_teams):
+        teams_data.append({
+            "index": idx,
+            "label": f"Team {idx + 1}" if match.is_multiteam else ("Team A" if idx == 0 else "Team B"),
+            "players": match.get_team_players(idx),
+            "score": scores[idx] if scores and idx < len(scores) else None,
+            "avg_before": team_avg_before[idx] if idx < len(team_avg_before) else None,
+        })
 
     return templates.TemplateResponse(
         "match_detail.html",
@@ -208,6 +222,7 @@ async def match_detail(
             "match": match,
             "team_a_avg_before": team_a_avg_before,
             "team_b_avg_before": team_b_avg_before,
+            "teams_data": teams_data,
             "user_match_stats": user_match_stats,
         },
     )
@@ -414,8 +429,10 @@ async def create_match(
     match_type_other: str = Form(""),
     weight: int = Form(1),
     notes: str = Form(""),
-    team_a_players: str = Form(...),
-    team_b_players: str = Form(...),
+    team_a_players: str = Form("[]"),
+    team_b_players: str = Form("[]"),
+    is_multiteam: int = Form(0),
+    teams_json: str = Form("[]"),
     insert_before: int = Form(None),
     insert_after: int = Form(None),
     admin: User = Depends(require_admin),
@@ -427,12 +444,6 @@ async def create_match(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    team_a_ids = json.loads(team_a_players) if team_a_players else []
-    team_b_ids = json.loads(team_b_players) if team_b_players else []
-
-    if not team_a_ids or not team_b_ids:
-        raise HTTPException(status_code=400, detail="Both teams must have at least one player")
-
     final_type = match_type_other.strip() if match_type == "Other" else match_type
     if not final_type:
         final_type = "Other"
@@ -440,18 +451,36 @@ async def create_match(
     # Clamp weight to 1–3
     weight = max(1, min(3, weight))
 
+    # Parse teams: multiteam sends teams_json, standard sends team_a/team_b
+    if is_multiteam:
+        all_teams = json.loads(teams_json) if teams_json else []
+        if len(all_teams) < 2:
+            raise HTTPException(status_code=400, detail="At least 2 teams required")
+        if len(all_teams) > 5:
+            raise HTTPException(status_code=400, detail="Maximum 5 teams allowed")
+        if any(len(t) == 0 for t in all_teams):
+            raise HTTPException(status_code=400, detail="Each team must have at least one player")
+    else:
+        team_a_ids = json.loads(team_a_players) if team_a_players else []
+        team_b_ids = json.loads(team_b_players) if team_b_players else []
+        if not team_a_ids or not team_b_ids:
+            raise HTTPException(status_code=400, detail="Both teams must have at least one player")
+        all_teams = [team_a_ids, team_b_ids]
+
     # Create the match with temporary ordering (will be fixed below)
-    match = Match(date=match_date_parsed, ordering=0, match_type=final_type, notes=notes if notes else None, weight=weight)
+    match = Match(
+        date=match_date_parsed, ordering=0, match_type=final_type,
+        notes=notes if notes else None, weight=weight,
+        is_multiteam=1 if is_multiteam else 0,
+    )
     db.add(match)
     db.flush()
 
-    for user_id in team_a_ids:
-        mp = MatchPlayer(match_id=match.id, user_id=user_id, team=Team.TEAM_A)
-        db.add(mp)
-
-    for user_id in team_b_ids:
-        mp = MatchPlayer(match_id=match.id, user_id=user_id, team=Team.TEAM_B)
-        db.add(mp)
+    for team_idx, team_ids in enumerate(all_teams):
+        team_enum = TEAM_BY_INDEX[team_idx]
+        for user_id in team_ids:
+            mp = MatchPlayer(match_id=match.id, user_id=user_id, team=team_enum)
+            db.add(mp)
 
     # Now renumber all matches from 1 to n
     # Build the desired order: get existing matches, insert new one at correct position
@@ -485,9 +514,11 @@ async def create_match(
 
 @router.post("/admin/matches/{match_id}/score")
 async def update_match_score(
+    request: Request,
     match_id: int,
-    score_team_a: int = Form(...),
-    score_team_b: int = Form(...),
+    score_team_a: int = Form(None),
+    score_team_b: int = Form(None),
+    scores_json: str = Form(None),
     weight: int = Form(None),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -496,8 +527,13 @@ async def update_match_score(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    match.score_team_a = score_team_a
-    match.score_team_b = score_team_b
+    if match.is_multiteam and scores_json:
+        scores = json.loads(scores_json)
+        match.scores = json.dumps(scores)
+    elif score_team_a is not None and score_team_b is not None:
+        match.score_team_a = score_team_a
+        match.score_team_b = score_team_b
+
     if weight is not None:
         match.weight = max(1, min(3, weight))
     db.commit()
@@ -947,9 +983,15 @@ async def player_network(
     from collections import defaultdict
     from itertools import combinations
 
+    from sqlalchemy import or_
     matches = (
         db.query(Match)
-        .filter(Match.score_team_a.isnot(None), Match.score_team_b.isnot(None))
+        .filter(
+            or_(
+                Match.score_team_a.isnot(None) & Match.score_team_b.isnot(None),
+                Match.scores.isnot(None),
+            )
+        )
         .all()
     )
 
@@ -957,13 +999,20 @@ async def player_network(
     player_ids_seen = set()
 
     for match in matches:
-        a_won = match.score_team_a > match.score_team_b
-        b_won = match.score_team_b > match.score_team_a
+        scores = match.parsed_scores
+        if not scores:
+            continue
+        max_score = max(scores)
+        num_winners = sum(1 for s in scores if s == max_score)
 
-        team_a_ids = [mp.user_id for mp in match.players if mp.team == Team.TEAM_A]
-        team_b_ids = [mp.user_id for mp in match.players if mp.team == Team.TEAM_B]
+        # Group player IDs by team
+        teams_ids: dict[int, list[int]] = defaultdict(list)
+        for mp in match.players:
+            idx = TEAM_BY_INDEX.index(mp.team)
+            teams_ids[idx].append(mp.user_id)
 
-        for team_ids, won in [(team_a_ids, a_won), (team_b_ids, b_won)]:
+        for idx, team_ids in teams_ids.items():
+            won = idx < len(scores) and scores[idx] == max_score and num_winners == 1
             player_ids_seen.update(team_ids)
             for u, v in combinations(sorted(team_ids), 2):
                 edge_data[(u, v)]["games"] += 1

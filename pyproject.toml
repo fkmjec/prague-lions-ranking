@@ -28,4 +28,5 @@ packages = ["src/prague_lions_ranking"]
 [dependency-groups]
 dev = [
     "hatchling>=1.28.0",
+    "pytest>=9.0.2",
 ]

@@ -9,22 +9,71 @@
     <div class="card">
         <h2>Match Information</h2>
 
-        {# Determine display order: winner always on left #}
-        {% set a_won = match.has_score and match.score_team_a > match.score_team_b %}
-        {% set b_won = match.has_score and match.score_team_b > match.score_team_a %}
+        <div class="match-info">
+            <div class="match-date-row">
+                <div class="match-date">{{ match.date.strftime('%Y-%m-%d') }}</div>
+                {% if match.match_type %}
+                <span class="match-type-badge">{{ match.match_type }}</span>
+                {% endif %}
+                {% if match.is_multiteam %}
+                <span class="match-type-badge">Multiteam</span>
+                {% endif %}
+                {% if match.weight is defined and match.weight and match.weight > 1 %}
+                <span class="match-type-badge">{{ match.weight }}×</span>
+                {% endif %}
+            </div>
+            {% if match.notes %}
+            <div class="match-notes">{{ match.notes }}</div>
+            {% endif %}
+        </div>
+
+        {% if match.is_multiteam %}
+        {# Multiteam: sort teams by score descending #}
+        {% set scores = match.parsed_scores %}
+        {% set sorted_teams = teams_data | sort(attribute='score', reverse=True) %}
+        <div class="multiteam-display">
+            {% for team in sorted_teams %}
+            {% set rank = loop.index %}
+            {% set prev_score = sorted_teams[loop.index0 - 1].score if loop.index0 > 0 else None %}
+            {% set tied = prev_score is not none and prev_score == team.score %}
+            <div class="team-box team-box--multiteam">
+                <div class="team-label">
+                    {% if scores %}
+                        {% if not tied and rank == 1 %}🥇 {{ team.label }}
+                        {% elif not tied and rank == 2 %}🥈 {{ team.label }}
+                        {% elif not tied and rank == 3 %}🥉 {{ team.label }}
+                        {% else %}{{ team.label }}{% endif %}
+                    {% else %}{{ team.label }}{% endif %}
+                </div>
+                {% if scores and team.score is not none %}
+                <div class="team-score">Score: {{ team.score }}</div>
+                {% endif %}
+                {% if team.avg_before is not none %}
+                <div class="team-avg-before">Avg. TS: {{ "%.2f"|format(team.avg_before) }}</div>
+                {% endif %}
+                <ul class="team-players">
+                    {% for player in team.players %}
+                    <li>{{ player.username }}</li>
+                    {% else %}
+                    <li style="color: #999;">No players</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        {# Standard 2-team: winner on left #}
+        {% set a_won = match.has_score and match.score_team_a is not none and match.score_team_b is not none and match.score_team_a > match.score_team_b %}
+        {% set b_won = match.has_score and match.score_team_a is not none and match.score_team_b is not none and match.score_team_b > match.score_team_a %}
         {% set ns = namespace(
-            left_players=match.team_a_players,
-            right_players=match.team_b_players,
-            left_avg=team_a_avg_before,
-            right_avg=team_b_avg_before,
+            left=teams_data[0] if teams_data|length > 0 else none,
+            right=teams_data[1] if teams_data|length > 1 else none,
             left_label="",
             right_label=""
         ) %}
-        {% if b_won %}
-            {% set ns.left_players = match.team_b_players %}
-            {% set ns.right_players = match.team_a_players %}
-            {% set ns.left_avg = team_b_avg_before %}
-            {% set ns.right_avg = team_a_avg_before %}
+        {% if b_won and teams_data|length > 1 %}
+            {% set ns.left = teams_data[1] %}
+            {% set ns.right = teams_data[0] %}
         {% endif %}
         {% if a_won or b_won %}
             {% set ns.left_label = "Winner" %}
@@ -33,57 +82,35 @@
             {% set ns.left_label = "Draw" %}
             {% set ns.right_label = "Draw" %}
         {% endif %}
-
-        <div class="match-info">
-            <div class="match-date-row">
-                <div class="match-date">{{ match.date.strftime('%Y-%m-%d') }}</div>
-                {% if match.match_type %}
-                <span class="match-type-badge">{{ match.match_type }}</span>
-                {% endif %}
-                {% if match.weight is defined and match.weight and match.weight > 1 %}
-                <span class="match-type-badge">{{ match.weight }}×</span>
-                {% endif %}
-                {% if match.has_score %}
-                    {% if a_won or b_won %}
-                    <span class="outcome-badge outcome-win">Won</span>
-                    {% else %}
-                    <span class="outcome-badge outcome-draw">Draw</span>
-                    {% endif %}
-                {% endif %}
-            </div>
-            {% if match.notes %}
-            <div class="match-notes">{{ match.notes }}</div>
-            {% endif %}
-        </div>
-
         <div class="teams-display">
             <div class="team-box">
                 {% if ns.left_label %}<div class="team-label">{{ ns.left_label }}</div>{% endif %}
-                {% if ns.left_avg is not none %}
-                <div class="team-avg-before">Avg. TS: {{ "%.2f"|format(ns.left_avg) }}</div>
+                {% if ns.left and ns.left.avg_before is not none %}
+                <div class="team-avg-before">Avg. TS: {{ "%.2f"|format(ns.left.avg_before) }}</div>
                 {% endif %}
                 <ul class="team-players">
-                    {% for player in ns.left_players %}
+                    {% if ns.left %}{% for player in ns.left.players %}
                     <li>{{ player.username }}</li>
                     {% else %}
                     <li style="color: #999;">No players</li>
-                    {% endfor %}
+                    {% endfor %}{% endif %}
                 </ul>
             </div>
             <div class="team-box">
                 {% if ns.right_label %}<div class="team-label">{{ ns.right_label }}</div>{% endif %}
-                {% if ns.right_avg is not none %}
-                <div class="team-avg-before">Avg. TS: {{ "%.2f"|format(ns.right_avg) }}</div>
+                {% if ns.right and ns.right.avg_before is not none %}
+                <div class="team-avg-before">Avg. TS: {{ "%.2f"|format(ns.right.avg_before) }}</div>
                 {% endif %}
                 <ul class="team-players">
-                    {% for player in ns.right_players %}
+                    {% if ns.right %}{% for player in ns.right.players %}
                     <li>{{ player.username }}</li>
                     {% else %}
                     <li style="color: #999;">No players</li>
-                    {% endfor %}
+                    {% endfor %}{% endif %}
                 </ul>
             </div>
         </div>
+        {% endif %}
 
         {% if user_match_stats %}
         <div class="rating-change-section">
@@ -119,6 +146,47 @@
         {% if is_admin %}
         <div class="score-form">
             <h3>{% if match.has_score %}Update{% else %}Set{% endif %} Score</h3>
+            {% if match.is_multiteam %}
+            {# Multiteam score form: N inputs submitted as JSON #}
+            <form method="POST" action="/admin/matches/{{ match.id }}/score" id="multiteamScoreForm">
+                <div class="score-inputs" style="flex-direction:column;align-items:flex-start;gap:0.5rem;">
+                    {% set existing_scores = match.parsed_scores %}
+                    {% for team in teams_data %}
+                    <div class="score-input-group" style="display:flex;align-items:center;gap:0.5rem;">
+                        <label style="min-width:5rem;">{{ team.label }}</label>
+                        <input type="number" class="mt-score-input" data-team-idx="{{ team.index }}"
+                               min="0" value="{{ existing_scores[team.index] if existing_scores and existing_scores|length > team.index else 0 }}"
+                               style="width:5rem;" required>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="scores_json" id="scoresJsonInput" value="">
+                <div class="score-inputs" style="margin-top:0.5rem;">
+                    <div class="score-input-group">
+                        <label>Weight</label>
+                        <select name="weight">
+                            <option value="1" {% if not match.weight or match.weight == 1 %}selected{% endif %}>1×</option>
+                            <option value="2" {% if match.weight == 2 %}selected{% endif %}>2×</option>
+                            <option value="3" {% if match.weight == 3 %}selected{% endif %}>3×</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions form-actions--center">
+                    <button type="submit">Save Score</button>
+                </div>
+            </form>
+            <script>
+            document.getElementById('multiteamScoreForm').addEventListener('submit', function() {
+                var inputs = document.querySelectorAll('.mt-score-input');
+                var scores = Array({{ teams_data|length }}).fill(0);
+                inputs.forEach(function(inp) {
+                    scores[parseInt(inp.dataset.teamIdx)] = parseInt(inp.value) || 0;
+                });
+                document.getElementById('scoresJsonInput').value = JSON.stringify(scores);
+            });
+            </script>
+            {% else %}
+            {# Standard 2-team score form #}
             <form method="POST" action="/admin/matches/{{ match.id }}/score">
                 <div class="score-inputs">
                     <div class="score-input-group">
@@ -145,6 +213,7 @@
                     <button type="submit">Save Score</button>
                 </div>
             </form>
+            {% endif %}
         </div>
         {% endif %}
     </div>

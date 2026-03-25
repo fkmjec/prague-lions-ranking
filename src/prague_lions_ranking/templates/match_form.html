@@ -44,7 +44,15 @@
                     <textarea id="notes" name="notes" placeholder="Any notes about this match..."></textarea>
                 </div>
 
-                <div class="teams-container">
+                <div class="form-group form-group--large">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="multiteamCheckbox">
+                        Multiteam (more than 2 teams)
+                    </label>
+                </div>
+
+                <!-- Standard 2-team mode -->
+                <div id="standard-teams" class="teams-container">
                     <div class="team-section team-a">
                         <h3>Team A</h3>
                         <div class="pod-load-row">
@@ -78,8 +86,16 @@
                     </div>
                 </div>
 
+                <!-- Multiteam mode -->
+                <div id="multiteam-teams" style="display:none;">
+                    <div id="multiteam-team-list"></div>
+                    <button type="button" id="addTeamBtn" class="btn-cancel" style="margin-top:0.5rem;">+ Add Team</button>
+                </div>
+
                 <input type="hidden" id="team_a_players" name="team_a_players" value="[]">
                 <input type="hidden" id="team_b_players" name="team_b_players" value="[]">
+                <input type="hidden" id="is_multiteam" name="is_multiteam" value="0">
+                <input type="hidden" id="teams_json" name="teams_json" value="[]">
                 {% if insert_before %}<input type="hidden" name="insert_before" value="{{ insert_before }}">{% endif %}
                 {% if insert_after %}<input type="hidden" name="insert_after" value="{{ insert_after }}">{% endif %}
 
@@ -150,6 +166,214 @@
                 var pod = podById(parseInt(this.value));
                 if (pod) window.matchFormTeamB.loadPlayers(pod.players);
                 syncPodDisabled();
+            });
+
+            // ── Multiteam mode ──────────────────────────────────────────────
+            var multiteamCheckbox = document.getElementById('multiteamCheckbox');
+            var standardTeams = document.getElementById('standard-teams');
+            var multiteamTeams = document.getElementById('multiteam-teams');
+            var multiteamList = document.getElementById('multiteam-team-list');
+            var addTeamBtn = document.getElementById('addTeamBtn');
+            var isMultiteamInput = document.getElementById('is_multiteam');
+            var teamsJsonInput = document.getElementById('teams_json');
+            var matchForm = document.getElementById('matchForm');
+
+            // Each multiteam entry: { players: [], api: { loadPlayers } }
+            var mtTeams = [];
+
+            function getAllMtPlayers() {
+                var all = [];
+                mtTeams.forEach(function (t) { all = all.concat(t.players); });
+                return all;
+            }
+
+            function createTeamSection(index) {
+                var section = document.createElement('div');
+                section.className = 'team-section';
+                section.innerHTML =
+                    '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                    '  <h3>Team ' + (index + 1) + '</h3>' +
+                    '  <button type="button" class="btn-delete mt-remove-btn" style="padding:0.2rem 0.6rem;font-size:0.85rem;">Remove</button>' +
+                    '</div>' +
+                    '<div class="pod-load-row">' +
+                    '  <select class="pod-select mt-pod-select"><option value="">Load from pod…</option></select>' +
+                    '</div>' +
+                    '<div class="player-search">' +
+                    '  <input type="text" class="mt-search" placeholder="Search players..." autocomplete="off">' +
+                    '  <div class="search-results mt-results"></div>' +
+                    '</div>' +
+                    '<div class="selected-players mt-players"><span class="no-players">No players selected</span></div>';
+
+                multiteamList.appendChild(section);
+
+                var searchInput = section.querySelector('.mt-search');
+                var resultsDiv = section.querySelector('.mt-results');
+                var playersDiv = section.querySelector('.mt-players');
+                var podSelect = section.querySelector('.mt-pod-select');
+                var removeBtn = section.querySelector('.mt-remove-btn');
+
+                // Populate pod options
+                pods.forEach(function (pod) {
+                    var opt = document.createElement('option');
+                    opt.value = pod.id;
+                    opt.textContent = pod.name;
+                    podSelect.appendChild(opt);
+                });
+
+                var teamObj = { players: [], section: section };
+
+                // Mini player search (reusing pattern from setupPlayerSearch)
+                var debounceTimer;
+                async function fetchUsers(query) {
+                    var response = await fetch('/api/users/search?q=' + encodeURIComponent(query));
+                    return response.json();
+                }
+
+                function showResults(users) {
+                    resultsDiv.innerHTML = '';
+                    var usedIds = getAllMtPlayers().map(function (p) { return p.id; });
+                    var available = users.filter(function (u) { return !usedIds.includes(u.id); });
+                    if (available.length === 0) {
+                        var div = document.createElement('div');
+                        div.className = 'search-result-item search-result-item--empty';
+                        div.textContent = 'No players available';
+                        resultsDiv.appendChild(div);
+                    } else {
+                        available.forEach(function (user) {
+                            var div = document.createElement('div');
+                            div.className = 'search-result-item';
+                            div.textContent = user.username;
+                            div.addEventListener('click', function () {
+                                teamObj.players.push(user);
+                                updateDisplay();
+                                resultsDiv.classList.remove('show');
+                                searchInput.value = '';
+                            });
+                            resultsDiv.appendChild(div);
+                        });
+                    }
+                    resultsDiv.classList.add('show');
+                }
+
+                function updateDisplay() {
+                    if (teamObj.players.length === 0) {
+                        playersDiv.innerHTML = '<span class="no-players">No players selected</span>';
+                    } else {
+                        playersDiv.innerHTML = teamObj.players.map(function (p) {
+                            return '<span class="player-tag">' + p.username +
+                                ' <button type="button" class="remove-btn" data-id="' + p.id + '">&times;</button></span>';
+                        }).join('');
+                        playersDiv.querySelectorAll('.remove-btn').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                var id = parseInt(btn.dataset.id);
+                                teamObj.players = teamObj.players.filter(function (p) { return p.id !== id; });
+                                updateDisplay();
+                            });
+                        });
+                    }
+                    syncTeamsJson();
+                }
+
+                searchInput.addEventListener('input', function () {
+                    clearTimeout(debounceTimer);
+                    var query = this.value.trim();
+                    debounceTimer = setTimeout(async function () {
+                        var users = await fetchUsers(query);
+                        showResults(users);
+                    }, 200);
+                });
+
+                searchInput.addEventListener('focus', async function () {
+                    if (this.value.trim() === '') {
+                        var users = await fetchUsers('');
+                        showResults(users);
+                    }
+                });
+
+                document.addEventListener('click', function (e) {
+                    if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+                        resultsDiv.classList.remove('show');
+                    }
+                });
+
+                podSelect.addEventListener('change', function () {
+                    var pod = podById(parseInt(this.value));
+                    if (pod) {
+                        var usedIds = [];
+                        mtTeams.forEach(function (t) {
+                            if (t !== teamObj) {
+                                t.players.forEach(function (p) { usedIds.push(p.id); });
+                            }
+                        });
+                        teamObj.players = pod.players.filter(function (p) { return !usedIds.includes(p.id); });
+                        updateDisplay();
+                    }
+                });
+
+                removeBtn.addEventListener('click', function () {
+                    if (mtTeams.length <= 2) {
+                        alert('At least 2 teams are required.');
+                        return;
+                    }
+                    var idx = mtTeams.indexOf(teamObj);
+                    if (idx > -1) mtTeams.splice(idx, 1);
+                    multiteamList.removeChild(section);
+                    renumberTeams();
+                    syncTeamsJson();
+                    updateAddBtn();
+                });
+
+                teamObj.api = { loadPlayers: function (players) { teamObj.players = players.slice(); updateDisplay(); } };
+                mtTeams.push(teamObj);
+                updateAddBtn();
+                return teamObj;
+            }
+
+            function renumberTeams() {
+                mtTeams.forEach(function (t, i) {
+                    t.section.querySelector('h3').textContent = 'Team ' + (i + 1);
+                });
+            }
+
+            function syncTeamsJson() {
+                teamsJsonInput.value = JSON.stringify(mtTeams.map(function (t) {
+                    return t.players.map(function (p) { return p.id; });
+                }));
+            }
+
+            function updateAddBtn() {
+                addTeamBtn.style.display = mtTeams.length >= 5 ? 'none' : '';
+            }
+
+            addTeamBtn.addEventListener('click', function () {
+                if (mtTeams.length < 5) {
+                    createTeamSection(mtTeams.length);
+                }
+            });
+
+            multiteamCheckbox.addEventListener('change', function () {
+                var isMulti = this.checked;
+                standardTeams.style.display = isMulti ? 'none' : '';
+                multiteamTeams.style.display = isMulti ? '' : 'none';
+                isMultiteamInput.value = isMulti ? '1' : '0';
+
+                if (isMulti && mtTeams.length === 0) {
+                    createTeamSection(0);
+                    createTeamSection(1);
+                }
+            });
+
+            // Override form submission for multiteam validation
+            matchForm.addEventListener('submit', function (e) {
+                var isMulti = multiteamCheckbox.checked;
+                if (isMulti) {
+                    syncTeamsJson();
+                    var empty = mtTeams.some(function (t) { return t.players.length === 0; });
+                    if (empty) {
+                        e.preventDefault();
+                        alert('Each team must have at least one player.');
+                    }
+                }
             });
         })();
     </script>

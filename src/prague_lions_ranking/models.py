@@ -1,4 +1,5 @@
 import enum
+import json as _json
 from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text, Date, Float
@@ -15,6 +16,12 @@ class UserRole(str, enum.Enum):
 class Team(str, enum.Enum):
     TEAM_A = "team_a"
     TEAM_B = "team_b"
+    TEAM_C = "team_c"
+    TEAM_D = "team_d"
+    TEAM_E = "team_e"
+
+
+TEAM_BY_INDEX = list(Team)  # [TEAM_A, TEAM_B, TEAM_C, TEAM_D, TEAM_E]
 
 
 class User(Base):
@@ -52,6 +59,8 @@ class Match(Base):
     score_team_a = Column(Integer, nullable=True)
     score_team_b = Column(Integer, nullable=True)
     weight = Column(Integer, nullable=False, default=1)
+    is_multiteam = Column(Integer, nullable=False, default=0)
+    scores = Column(Text, nullable=True)  # JSON array: [score_0, score_1, ...]
     created_at = Column(DateTime, default=datetime.utcnow)
 
     players = relationship("MatchPlayer", back_populates="match", cascade="all, delete-orphan")
@@ -64,9 +73,28 @@ class Match(Base):
     def team_b_players(self):
         return [mp.user for mp in self.players if mp.team == Team.TEAM_B]
 
+    def get_team_players(self, index):
+        """Get players for team at given index (0-based)."""
+        team = TEAM_BY_INDEX[index]
+        return [mp.user for mp in self.players if mp.team == team]
+
+    @property
+    def num_teams(self):
+        return len(set(mp.team for mp in self.players))
+
+    @property
+    def parsed_scores(self):
+        """Return scores as a list, regardless of storage format."""
+        if self.scores:
+            return _json.loads(self.scores)
+        if self.score_team_a is not None and self.score_team_b is not None:
+            return [self.score_team_a, self.score_team_b]
+        return None
+
     @property
     def has_score(self):
-        return self.score_team_a is not None and self.score_team_b is not None
+        scores = self.parsed_scores
+        return scores is not None and len(scores) >= 2
 
 
 class MatchPlayer(Base):

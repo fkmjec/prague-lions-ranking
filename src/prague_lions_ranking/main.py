@@ -23,6 +23,8 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE users ADD COLUMN rating_history TEXT",
             "ALTER TABLE users ADD COLUMN teammate_stats TEXT",
             "ALTER TABLE matches ADD COLUMN weight INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE matches ADD COLUMN is_multiteam INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE matches ADD COLUMN scores TEXT",
         ]:
             try:
                 conn.execute(text(stmt))

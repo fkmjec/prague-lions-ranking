@@ -58,23 +58,36 @@
                     {% for match in matches %}
                     {# Compute outcome for data attribute #}
                     {% set ns = namespace(outcome="pending") %}
-                    {% if match.has_score %}
-                        {% set a_won = match.score_team_a > match.score_team_b %}
-                        {% set b_won = match.score_team_b > match.score_team_a %}
-                        {% if is_admin %}
-                            {% if a_won %}{% set ns.outcome = "a-won" %}
-                            {% elif b_won %}{% set ns.outcome = "b-won" %}
-                            {% else %}{% set ns.outcome = "draw" %}{% endif %}
+                    {% set scores = match.parsed_scores %}
+                    {% if match.has_score and scores %}
+                        {% if match.is_multiteam %}
+                            {% set ns.outcome = "multiteam" %}
                         {% else %}
-                            {% set user_in_a = user.username in (match.team_a_players | map(attribute='username') | list) %}
-                            {% if (user_in_a and a_won) or (not user_in_a and b_won) %}{% set ns.outcome = "win" %}
-                            {% elif not a_won and not b_won %}{% set ns.outcome = "draw" %}
-                            {% else %}{% set ns.outcome = "loss" %}{% endif %}
+                            {% set a_won = scores[0] > scores[1] %}
+                            {% set b_won = scores[1] > scores[0] %}
+                            {% if is_admin %}
+                                {% if a_won %}{% set ns.outcome = "a-won" %}
+                                {% elif b_won %}{% set ns.outcome = "b-won" %}
+                                {% else %}{% set ns.outcome = "draw" %}{% endif %}
+                            {% else %}
+                                {% set user_in_a = user.username in (match.team_a_players | map(attribute='username') | list) %}
+                                {% if (user_in_a and a_won) or (not user_in_a and b_won) %}{% set ns.outcome = "win" %}
+                                {% elif not a_won and not b_won %}{% set ns.outcome = "draw" %}
+                                {% else %}{% set ns.outcome = "loss" %}{% endif %}
+                            {% endif %}
                         {% endif %}
                     {% endif %}
+                    {# For multiteam, put all players in team-a for filter compatibility #}
+                    {% if match.is_multiteam %}
+                    {% set filter_team_a = match.players | map(attribute='user') | map(attribute='username') | join('|') %}
+                    {% set filter_team_b = '' %}
+                    {% else %}
+                    {% set filter_team_a = match.team_a_players | map(attribute='username') | join('|') %}
+                    {% set filter_team_b = match.team_b_players | map(attribute='username') | join('|') %}
+                    {% endif %}
                     <div class="match-item {% if not match.has_score %}no-score{% endif %}"
-                         data-team-a="{{ match.team_a_players | map(attribute='username') | join('|') }}"
-                         data-team-b="{{ match.team_b_players | map(attribute='username') | join('|') }}"
+                         data-team-a="{{ filter_team_a }}"
+                         data-team-b="{{ filter_team_b }}"
                          data-date="{{ match.date.strftime('%Y-%m-%d') }}"
                          data-outcome="{{ ns.outcome }}"
                          data-type="{{ match.match_type or '' }}">
@@ -83,11 +96,40 @@
                             {% if match.match_type %}
                             <span class="match-type-badge">{{ match.match_type }}</span>
                             {% endif %}
+                            {% if match.is_multiteam %}
+                            <span class="match-type-badge">Multiteam</span>
+                            {% endif %}
                             {% if match.weight is defined and match.weight and match.weight > 1 %}
                             <span class="match-type-badge">{{ match.weight }}×</span>
                             {% endif %}
                         </div>
                         <div class="match-teams">
+                        {% if match.is_multiteam %}
+                            {# Multiteam: show all teams stacked #}
+                            {% set n = match.num_teams %}
+                            {% for idx in range(n) %}
+                            {% set team_players = match.get_team_players(idx) %}
+                            <div class="team">
+                                <div class="team-label">Team {{ idx + 1 }}
+                                    {% if match.has_score and scores and idx < scores|length %}
+                                    <span style="font-weight:normal;"> – {{ scores[idx] }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="team-players">
+                                    {{ team_players | map(attribute='username') | join(', ') or 'No players' }}
+                                </div>
+                            </div>
+                            {% if not loop.last %}<span class="vs">·</span>{% endif %}
+                            {% endfor %}
+                            {% if match.has_score %}
+                                <span class="outcome-badge outcome-draw">Multiteam</span>
+                            {% elif is_admin %}
+                            <a href="/matches/{{ match.id }}" class="btn-view" style="font-size:0.8rem;">Set Scores</a>
+                            {% else %}
+                            <div class="match-score match-score--pending">Pending</div>
+                            {% endif %}
+                        {% else %}
+                            {# Standard 2-team #}
                             <div class="team">
                                 <div class="team-label">Team A</div>
                                 <div class="team-players">
@@ -101,9 +143,9 @@
                                     {{ match.team_b_players | map(attribute='username') | join(', ') or 'No players' }}
                                 </div>
                             </div>
-                            {% if match.has_score %}
-                                {% set a_won = match.score_team_a > match.score_team_b %}
-                                {% set b_won = match.score_team_b > match.score_team_a %}
+                            {% if match.has_score and scores %}
+                                {% set a_won = scores[0] > scores[1] %}
+                                {% set b_won = scores[1] > scores[0] %}
                                 {% set user_in_a = user.username in (match.team_a_players | map(attribute='username') | list) %}
                                 {% if is_admin %}
                                     {% if a_won %}<span class="outcome-badge outcome-win">A Won</span>
@@ -129,6 +171,7 @@
                             {% else %}
                             <div class="match-score match-score--pending">Pending</div>
                             {% endif %}
+                        {% endif %}
                         </div>
                         {% if match.notes %}
                         <div class="match-notes">{{ match.notes }}</div>

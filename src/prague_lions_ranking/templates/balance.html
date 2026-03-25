@@ -67,7 +67,7 @@
                 {% for player in team.players %}
                 <div class="balance-team-row">
                     <span class="balance-team-player">{{ player.username }}</span>
-                    <span class="balance-chip-skill">{{ player.true_skill }}</span>
+                    {% if is_admin %}<span class="balance-chip-skill">{{ player.true_skill }}</span>{% endif %}
                 </div>
                 {% endfor %}
                 <div class="balance-team-avg">Average TrueSkill: {{ team.avg_skill }}</div>

@@ -10,7 +10,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 from trueskillthroughtime import History
 
-from prague_lions_ranking.models import Match, User, Team
+from prague_lions_ranking.models import Match, User, Team, TEAM_BY_INDEX
 
 
 # TrueSkill default values (same as Lions project)
@@ -22,43 +22,78 @@ P_DRAW = 1 / 6  # Probability of draw from observed data
 
 def get_matches_with_scores(db: Session) -> list[Match]:
     """Get all matches that have scores recorded, ordered by date and ordering."""
+    from sqlalchemy import or_
     return (
         db.query(Match)
-        .filter(Match.score_team_a.isnot(None), Match.score_team_b.isnot(None))
+        .filter(
+            or_(
+                # Legacy 2-team matches
+                Match.score_team_a.isnot(None) & Match.score_team_b.isnot(None),
+                # Multiteam matches with scores JSON
+                Match.scores.isnot(None),
+            )
+        )
         .order_by(Match.date, Match.ordering)
         .all()
     )
+
+
+def scores_to_ttt_results(scores: list[int]) -> list[int]:
+    """Convert a list of scores to TTT result format (higher = better).
+
+    Uses dense ranking: teams with the same score get the same result value.
+    """
+    unique_desc = sorted(set(scores), reverse=True)
+    rank_map = {s: i for i, s in enumerate(unique_desc)}
+    max_rank = len(unique_desc) - 1
+    return [max_rank - rank_map[s] for s in scores]
 
 
 def match_to_ttt_format(match: Match) -> tuple[list[list[str]], list[int], float]:
     """Convert a match to TrueSkill Through Time format.
 
     Returns:
-        teams: [[team_a_usernames], [team_b_usernames]]
-        results: [1, 0] if team_a won, [0, 1] if team_b won, [0, 0] for draw
+        teams: list of team player lists (usernames)
+        results: ranking per team (higher = better)
         time: timestamp in days for TTT
     """
-    team_a = [mp.user.username for mp in match.players if mp.team == Team.TEAM_A]
-    team_b = [mp.user.username for mp in match.players if mp.team == Team.TEAM_B]
+    scores = match.parsed_scores
 
-    # Determine winner based on scores
-    if match.score_team_a > match.score_team_b:
-        # Team A won - put them first
-        teams = [team_a, team_b]
-        results = [1, 0]
-    elif match.score_team_b > match.score_team_a:
-        # Team B won - put them first
-        teams = [team_b, team_a]
-        results = [1, 0]
-    else:
-        # Draw
-        teams = [team_a, team_b]
-        results = [0, 0]
+    # Build teams in index order
+    team_indices = sorted(set(TEAM_BY_INDEX.index(mp.team) for mp in match.players))
+    teams = []
+    for idx in team_indices:
+        team_enum = TEAM_BY_INDEX[idx]
+        teams.append([mp.user.username for mp in match.players if mp.team == team_enum])
+
+    results = scores_to_ttt_results(scores)
 
     # Convert date to timestamp in days (for TTT time parameter)
     time = datetime.combine(match.date, datetime.min.time()).timestamp() / (60 * 60 * 24)
 
     return teams, results, time
+
+
+def _match_team_outcomes(match: Match) -> dict:
+    """Compute per-team outcomes for a match.
+
+    Returns dict mapping Team enum → 'win' | 'draw' | 'loss'.
+    """
+    scores = match.parsed_scores
+    team_indices = sorted(set(TEAM_BY_INDEX.index(mp.team) for mp in match.players))
+
+    max_score = max(scores)
+    winners = [team_indices[i] for i, s in enumerate(scores) if s == max_score]
+    is_draw = len(winners) > 1
+
+    outcomes = {}
+    for i, idx in enumerate(team_indices):
+        team_enum = TEAM_BY_INDEX[idx]
+        if scores[i] == max_score:
+            outcomes[team_enum] = "draw" if is_draw else "win"
+        else:
+            outcomes[team_enum] = "loss"
+    return outcomes
 
 
 def calculate_attendance(matches: list[Match]) -> dict[str, dict[str, int]]:
@@ -72,20 +107,18 @@ def calculate_attendance(matches: list[Match]) -> dict[str, dict[str, int]]:
     )
 
     for match in matches:
-        # Determine winning team
-        is_draw = match.score_team_a == match.score_team_b
-        team_a_won = match.score_team_a > match.score_team_b
-        team_b_won = match.score_team_b > match.score_team_a
+        outcomes = _match_team_outcomes(match)
 
         for mp in match.players:
             username = mp.user.username
             player_stats[username]["practice_dates"].add(match.date)
             player_stats[username]["games"] += 1
 
-            if is_draw:
-                player_stats[username]["draws"] += 1
-            elif (mp.team == Team.TEAM_A and team_a_won) or (mp.team == Team.TEAM_B and team_b_won):
+            outcome = outcomes.get(mp.team, "loss")
+            if outcome == "win":
                 player_stats[username]["wins"] += 1
+            elif outcome == "draw":
+                player_stats[username]["draws"] += 1
 
     # Convert sets to counts
     return {
@@ -298,15 +331,17 @@ def calculate_teammate_stats(matches: list[Match]) -> dict[str, list[dict]]:
     )
 
     for match in matches:
-        team_a_won = match.score_team_a > match.score_team_b
-        team_b_won = match.score_team_b > match.score_team_a
+        outcomes = _match_team_outcomes(match)
 
-        team_a = [mp.user.username for mp in match.players if mp.team == Team.TEAM_A]
-        team_b = [mp.user.username for mp in match.players if mp.team == Team.TEAM_B]
+        # Group players by team
+        teams_players: dict[Team, list[str]] = defaultdict(list)
+        for mp in match.players:
+            teams_players[mp.team].append(mp.user.username)
 
-        for team, won in [(team_a, team_a_won), (team_b, team_b_won)]:
-            for player in team:
-                for teammate in team:
+        for team_enum, players in teams_players.items():
+            won = outcomes.get(team_enum) == "win"
+            for player in players:
+                for teammate in players:
                     if teammate != player:
                         pair[player][teammate]["games"] += 1
                         if won:

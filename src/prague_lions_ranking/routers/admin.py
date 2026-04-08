@@ -605,6 +605,135 @@ async def delete_match(
     return RedirectResponse(url="/matches", status_code=status.HTTP_302_FOUND)
 
 
+@router.get("/admin/matches/{match_id}/edit", response_class=HTMLResponse)
+async def edit_match_form(
+    request: Request,
+    match_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    pods = db.query(Pod).order_by(Pod.name).all()
+    pods_json = json.dumps([
+        {
+            "id": pod.id,
+            "name": pod.name,
+            "players": [{"id": pp.user.id, "username": pp.user.username} for pp in pod.players],
+        }
+        for pod in pods
+    ])
+
+    # Build current teams as JSON for JS pre-population
+    num_teams = match.num_teams
+    current_teams = []
+    for idx in range(num_teams):
+        team_players = match.get_team_players(idx)
+        current_teams.append([{"id": p.id, "username": p.username} for p in team_players])
+    current_teams_json = json.dumps(current_teams)
+
+    # Determine current match type for the select
+    current_type = match.match_type or ""
+    is_standard_type = current_type in STANDARD_MATCH_TYPES
+    match_type_select = current_type if is_standard_type else "Other"
+    match_type_other_val = current_type if not is_standard_type else ""
+
+    return templates.TemplateResponse(
+        "match_edit.html",
+        {
+            "request": request,
+            "user": admin,
+            "is_admin": True,
+            "match": match,
+            "pods_json": pods_json,
+            "current_teams_json": current_teams_json,
+            "match_type_select": match_type_select,
+            "match_type_other_val": match_type_other_val,
+        },
+    )
+
+
+@router.post("/admin/matches/{match_id}/edit")
+async def edit_match(
+    request: Request,
+    match_id: int,
+    match_date: str = Form(...),
+    match_type: str = Form("Mini"),
+    match_type_other: str = Form(""),
+    weight: int = Form(1),
+    notes: str = Form(""),
+    team_a_players: str = Form("[]"),
+    team_b_players: str = Form("[]"),
+    is_multiteam: int = Form(0),
+    teams_json: str = Form("[]"),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    from datetime import date as date_type
+
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    try:
+        match_date_parsed = date_type.fromisoformat(match_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    final_type = match_type_other.strip() if match_type == "Other" else match_type
+    if not final_type:
+        final_type = "Other"
+
+    weight = max(1, min(3, weight))
+
+    if is_multiteam:
+        all_teams = json.loads(teams_json) if teams_json else []
+        if len(all_teams) < 2:
+            raise HTTPException(status_code=400, detail="At least 2 teams required")
+        if len(all_teams) > 5:
+            raise HTTPException(status_code=400, detail="Maximum 5 teams allowed")
+        if any(len(t) == 0 for t in all_teams):
+            raise HTTPException(status_code=400, detail="Each team must have at least one player")
+    else:
+        team_a_ids = json.loads(team_a_players) if team_a_players else []
+        team_b_ids = json.loads(team_b_players) if team_b_players else []
+        if not team_a_ids or not team_b_ids:
+            raise HTTPException(status_code=400, detail="Both teams must have at least one player")
+        all_teams = [team_a_ids, team_b_ids]
+
+    # Update match metadata
+    match.date = match_date_parsed
+    match.match_type = final_type
+    match.weight = weight
+    match.notes = notes if notes else None
+    match.is_multiteam = 1 if is_multiteam else 0
+
+    # Clear old scores if team structure changed (2-team ↔ multiteam)
+    if is_multiteam:
+        match.score_team_a = None
+        match.score_team_b = None
+    else:
+        match.scores = None
+
+    # Replace all players: delete old, insert new
+    db.query(MatchPlayer).filter(MatchPlayer.match_id == match.id).delete()
+    db.flush()
+
+    for team_idx, team_ids in enumerate(all_teams):
+        team_enum = TEAM_BY_INDEX[team_idx]
+        for user_id in team_ids:
+            db.add(MatchPlayer(match_id=match.id, user_id=user_id, team=team_enum))
+
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/matches/{match.id}",
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
 @router.post("/admin/calculate-ratings")
 async def calculate_ratings(
     admin: User = Depends(require_admin),

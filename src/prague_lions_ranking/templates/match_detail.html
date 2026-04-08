@@ -219,6 +219,12 @@
     </div>
 
     {% if is_admin %}
+    <div class="card">
+        <h2>Edit Match</h2>
+        <p style="margin-bottom: 1rem;">Modify players, date, type, weight, or notes for this match.</p>
+        <a href="/admin/matches/{{ match.id }}/edit" class="header-btn btn-secondary">Edit Match</a>
+    </div>
+
     <div class="card danger-zone">
         <h2>Delete</h2>
         <p style="margin-bottom: 1rem;">Deleting this match will permanently remove it and all associated data.</p>

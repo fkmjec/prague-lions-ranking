@@ -382,19 +382,21 @@
             var isMulti = {{ 'true' if match.is_multiteam else 'false' }};
 
             if (isMulti) {
-                // Pre-populate multiteam sections
                 currentTeams.forEach(function (players, idx) {
                     createTeamSection(idx, players);
                 });
                 syncTeamsJson();
             } else {
-                // Pre-populate standard 2-team mode
-                if (currentTeams.length >= 1 && window.matchFormTeamA) {
-                    window.matchFormTeamA.loadPlayers(currentTeams[0]);
-                }
-                if (currentTeams.length >= 2 && window.matchFormTeamB) {
-                    window.matchFormTeamB.loadPlayers(currentTeams[1]);
-                }
+                // scripts.js sets up matchFormTeamA/B on DOMContentLoaded,
+                // so we must wait for that before calling loadPlayers.
+                document.addEventListener('DOMContentLoaded', function () {
+                    if (currentTeams.length >= 1 && window.matchFormTeamA) {
+                        window.matchFormTeamA.loadPlayers(currentTeams[0]);
+                    }
+                    if (currentTeams.length >= 2 && window.matchFormTeamB) {
+                        window.matchFormTeamB.loadPlayers(currentTeams[1]);
+                    }
+                });
             }
         })();
     </script>

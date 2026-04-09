@@ -13,11 +13,13 @@ from trueskillthroughtime import History
 from prague_lions_ranking.models import Match, User, Team, TEAM_BY_INDEX
 
 
-# TrueSkill default values (same as Lions project)
+# TrueSkill parameters (Xbox Live defaults from the original paper)
 MU = 25
 SIGMA = 25 / 3
-K = 3  # TrueSkill is computed as Mu - K*Sigma
-P_DRAW = 1 / 6  # Probability of draw from observed data
+BETA = SIGMA / 2       # performance noise per game
+GAMMA = SIGMA / 100    # temporal dynamics (skill drift between time steps)
+K = 3                  # TrueSkill is computed as Mu - K*Sigma
+P_DRAW = 1 / 6        # Probability of draw from observed data
 
 
 def get_matches_with_scores(db: Session) -> list[Match]:
@@ -173,6 +175,8 @@ def calculate_ratings(db: Session) -> dict[str, dict]:
         p_draw=P_DRAW,
         mu=MU,
         sigma=SIGMA,
+        beta=BETA,
+        gamma=GAMMA,
     )
     history.convergence()
 
@@ -251,6 +255,8 @@ def calculate_all_rating_histories(
             p_draw=P_DRAW,
             mu=MU,
             sigma=SIGMA,
+            beta=BETA,
+            gamma=GAMMA,
         )
         h.convergence()
 

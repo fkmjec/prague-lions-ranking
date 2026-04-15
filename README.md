@@ -44,7 +44,7 @@ Each match has an integer **weight** (default 1). A match with weight N is enter
 
 **`β` (beta)** — skill scale. Two players 1β apart have a 76% win probability for the stronger one. We use the library default.
 
-**`γ` (gamma)** — temporal drift. Between each practice, σ² increases by γ², capturing the fact that skills change over time. We use the library default (0.03).
+**`γ` (gamma)** — temporal drift. Between each practice, σ² increases by γ², capturing the fact that skills change over time. We use 2× the library default (~0.167) so that infrequent players' uncertainty re-inflates faster.
 
 ## Setup
 

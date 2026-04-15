@@ -17,7 +17,7 @@ from prague_lions_ranking.models import Match, User, Team, TEAM_BY_INDEX
 MU = 25
 SIGMA = 25 / 3
 BETA = SIGMA / 2       # performance noise per game
-GAMMA = SIGMA / 100    # temporal dynamics (skill drift between time steps)
+GAMMA = SIGMA / 50     # temporal dynamics (skill drift between time steps)
 K = 3                  # TrueSkill is computed as Mu - K*Sigma
 P_DRAW = 1 / 6        # Probability of draw from observed data
 

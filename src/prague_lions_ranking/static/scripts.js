@@ -164,6 +164,10 @@ function initMatchForm() {
     window.matchFormTeamB = teamBApi;
 
     matchForm.addEventListener('submit', function(e) {
+        var isMultiteam = document.getElementById('is_multiteam');
+        if (isMultiteam && isMultiteam.value === '1') {
+            return; // multiteam validation is handled separately
+        }
         if (teamAPlayers.length === 0 || teamBPlayers.length === 0) {
             e.preventDefault();
             alert('Both teams must have at least one player.');

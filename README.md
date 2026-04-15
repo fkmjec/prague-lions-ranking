@@ -5,10 +5,10 @@ A web app for tracking player rankings across frisbee practice sessions. Admins 
 ## Features
 
 - **Leaderboard** — ranked player list with TrueSkill ratings, games played, and practice attendance
-- **Match logging** — mobile-friendly form for recording game results at practice
+- **Match logging** — mobile-friendly form for recording game results at practice; admins can edit matches retroactively (change players, date, type, weight)
 - **Ratings** — one-click recalculation over the full match history
 - **Team Drafter** — balance a selected pool of players into N fair teams using hill-climbing optimisation
-- **User management** — admin creates player accounts; passwords are auto-generated and shown once
+- **User management** — admin creates player accounts; passwords are auto-generated and shown once; all users can change their own password
 
 ## Tech Stack
 
@@ -68,7 +68,7 @@ Open [http://localhost:8000](http://localhost:8000).
 
 1. Log in at `/login` with admin credentials
 2. Create player accounts from the dashboard — save the generated password (shown once)
-3. Record match results from the Matches page
+3. Record match results from the Matches page (click a match → **Edit Match** to change players or metadata after the fact)
 4. Hit **Calculate Ratings** on the dashboard to recompute all TrueSkill scores
 5. Use **Team Drafter** to split a player pool into balanced teams before a session
 

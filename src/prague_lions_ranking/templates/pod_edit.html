@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Pod – Prague Lions Ranking{% endblock %}
+{% block page_title %}Edit Pod{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Edit Pod</h2>
+        <p class="balance-desc">
+            Change the pod's name or roster. This only edits the pod itself — past
+            matches that used this pod are not affected.
+        </p>
+
+        <form method="POST" action="/admin/pods/{{ pod.id }}/edit" id="edit-pod-form">
+            <div class="form-group">
+                <label for="pod_name">Pod name</label>
+                <input type="text" id="pod_name" name="pod_name" required maxlength="80"
+                       value="{{ pod.name }}">
+            </div>
+
+            <div class="balance-pool-header" style="margin-top: 1rem;">
+                <h3>Players</h3>
+                <button type="button" class="btn-cancel" id="pod-select-all-btn">Select all</button>
+            </div>
+            <div class="balance-player-grid" id="pod-player-grid">
+                {% for player in all_players %}
+                <label class="balance-player-chip">
+                    <input type="checkbox" name="pod_players" value="{{ player.id }}"
+                           {% if player.id in current_player_ids %}checked{% endif %}>
+                    <span class="balance-chip-inner">
+                        <span class="balance-chip-name">{{ player.username }}</span>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <input type="hidden" id="pod-player-ids" name="player_ids" value="[]">
+
+            <div class="form-actions">
+                <a href="/admin/pods" class="btn-cancel">Cancel</a>
+                <button type="submit">Save changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var form = document.getElementById('edit-pod-form');
+    var hiddenInput = document.getElementById('pod-player-ids');
+    form.addEventListener('submit', function () {
+        var checked = Array.from(
+            form.querySelectorAll('input[name="pod_players"]:checked')
+        ).map(function (cb) { return parseInt(cb.value); });
+        hiddenInput.value = JSON.stringify(checked);
+    });
+
+    var selectAllBtn = document.getElementById('pod-select-all-btn');
+    var boxes = form.querySelectorAll('input[name="pod_players"]');
+    function updateSelectAllLabel() {
+        var all = Array.from(boxes).every(function (b) { return b.checked; });
+        selectAllBtn.textContent = all ? 'Deselect all' : 'Select all';
+    }
+    selectAllBtn.addEventListener('click', function () {
+        var all = Array.from(boxes).every(function (b) { return b.checked; });
+        boxes.forEach(function (b) { b.checked = !all; });
+        updateSelectAllLabel();
+    });
+    boxes.forEach(function (b) { b.addEventListener('change', updateSelectAllLabel); });
+    updateSelectAllLabel();
+})();
+</script>
+{% endblock %}

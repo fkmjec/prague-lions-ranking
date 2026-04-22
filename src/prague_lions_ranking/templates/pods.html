@@ -73,6 +73,7 @@
                                    required maxlength="80" class="pod-rename-input">
                             <button type="submit" class="btn-view">Rename</button>
                         </form>
+                        <a href="/admin/pods/{{ pod.id }}/edit" class="btn-view">Edit</a>
                         <form method="POST" action="/admin/pods/{{ pod.id }}/delete"
                               onsubmit="return confirm('Delete pod \'{{ pod.name }}\'?')">
                             <button type="submit" class="btn-delete">Delete</button>

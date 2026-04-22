@@ -1139,6 +1139,64 @@ async def delete_pod(
     return RedirectResponse(url="/admin/pods", status_code=status.HTTP_302_FOUND)
 
 
+@router.get("/admin/pods/{pod_id}/edit", response_class=HTMLResponse)
+async def edit_pod_form(
+    request: Request,
+    pod_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    pod = db.query(Pod).filter(Pod.id == pod_id).first()
+    if not pod:
+        raise HTTPException(status_code=404, detail="Pod not found")
+
+    all_players = db.query(User).filter(User.role == UserRole.USER).order_by(User.username).all()
+    current_player_ids = {pp.user_id for pp in pod.players}
+
+    return templates.TemplateResponse(
+        "pod_edit.html",
+        {
+            "request": request,
+            "user": admin,
+            "is_admin": True,
+            "pod": pod,
+            "all_players": all_players,
+            "current_player_ids": current_player_ids,
+        },
+    )
+
+
+@router.post("/admin/pods/{pod_id}/edit")
+async def edit_pod(
+    pod_id: int,
+    pod_name: str = Form(...),
+    player_ids: str = Form("[]"),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    pod = db.query(Pod).filter(Pod.id == pod_id).first()
+    if not pod:
+        raise HTTPException(status_code=404, detail="Pod not found")
+
+    name = pod_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Pod name cannot be empty")
+    if db.query(Pod).filter(Pod.name == name, Pod.id != pod_id).first():
+        raise HTTPException(status_code=400, detail="A pod with this name already exists")
+
+    ids = json.loads(player_ids) if player_ids else []
+
+    pod.name = name
+    # Replace pod roster: delete old PodPlayer rows, insert new ones.
+    # This does not touch MatchPlayer rows, so past matches are unaffected.
+    db.query(PodPlayer).filter(PodPlayer.pod_id == pod_id).delete()
+    for user_id in ids:
+        db.add(PodPlayer(pod_id=pod_id, user_id=user_id))
+
+    db.commit()
+    return RedirectResponse(url="/admin/pods", status_code=status.HTTP_302_FOUND)
+
+
 @router.get("/api/my-rating-history")
 async def my_rating_history(
     user: User = Depends(require_login),

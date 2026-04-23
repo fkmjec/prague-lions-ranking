@@ -1344,6 +1344,32 @@ async def diagnostics(
     for d in sorted(by_date.keys()):
         lines.append(f"  {d}: {len(by_date[d])} match(es)  ids={by_date[d]}")
 
+    # 7. Games-per-player-per-practice consistency ---------------------------
+    hdr("7. Per-practice games consistency (do all attendees play the same #?)")
+    # date -> {username -> games_on_that_date}
+    date_to_player_games: dict = defaultdict(dict)
+    for name, s in per_player.items():
+        for d, n in s["per_date"].items():
+            date_to_player_games[d][name] = n
+
+    any_inconsistent = False
+    for d in sorted(date_to_player_games.keys()):
+        attendees = date_to_player_games[d]
+        counts = set(attendees.values())
+        if len(counts) <= 1:
+            continue
+        any_inconsistent = True
+        lines.append(f"  {d}: INCONSISTENT -- counts observed: {sorted(counts)}")
+        # Group attendees by game count, descending
+        by_count: dict = defaultdict(list)
+        for name, n in attendees.items():
+            by_count[n].append(name)
+        for n in sorted(by_count.keys(), reverse=True):
+            players = ", ".join(sorted(by_count[n], key=str.lower))
+            lines.append(f"    {n} game(s): {players}")
+    if not any_inconsistent:
+        lines.append("  OK -- every attendee of every practice played the same number of games.")
+
     return "\n".join(lines)
 
 

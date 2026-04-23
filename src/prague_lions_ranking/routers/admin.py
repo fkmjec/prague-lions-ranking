@@ -2,7 +2,7 @@ from datetime import timedelta
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -1203,6 +1203,148 @@ async def my_rating_history(
 ):
     history = json.loads(user.rating_history) if user.rating_history else []
     return JSONResponse(content=history)
+
+
+@router.get("/admin/diagnostics", response_class=PlainTextResponse)
+async def diagnostics(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Plain-text admin diagnostics for data integrity checks."""
+    from collections import defaultdict
+    from sqlalchemy import or_, func
+
+    lines: list[str] = []
+
+    def hdr(title: str) -> None:
+        lines.append("")
+        lines.append("=" * 70)
+        lines.append(title)
+        lines.append("=" * 70)
+
+    # 1. Duplicate (match_id, user_id) pairs ---------------------------------
+    hdr("1. Duplicate MatchPlayer rows (same user in same match twice)")
+    dup_rows = (
+        db.query(
+            MatchPlayer.match_id,
+            MatchPlayer.user_id,
+            func.count(MatchPlayer.id).label("n"),
+        )
+        .group_by(MatchPlayer.match_id, MatchPlayer.user_id)
+        .having(func.count(MatchPlayer.id) > 1)
+        .all()
+    )
+    if not dup_rows:
+        lines.append("  OK -- no duplicates.")
+    else:
+        lines.append(f"  FOUND {len(dup_rows)} duplicate pair(s):")
+        for match_id, user_id, n in dup_rows:
+            u = db.query(User).filter(User.id == user_id).first()
+            m = db.query(Match).filter(Match.id == match_id).first()
+            uname = u.username if u else f"?user_id={user_id}"
+            mdate = m.date if m else "?"
+            rows = db.query(MatchPlayer).filter(
+                MatchPlayer.match_id == match_id,
+                MatchPlayer.user_id == user_id,
+            ).all()
+            teams = ", ".join(mp.team.value if mp.team else "?" for mp in rows)
+            lines.append(
+                f"  match_id={match_id} date={mdate} user={uname} rows={n} teams=[{teams}]"
+            )
+
+    # 2. Orphaned MatchPlayer rows -------------------------------------------
+    hdr("2. Orphaned MatchPlayer rows (no matching Match)")
+    orphans = (
+        db.query(MatchPlayer)
+        .outerjoin(Match, Match.id == MatchPlayer.match_id)
+        .filter(Match.id.is_(None))
+        .all()
+    )
+    if not orphans:
+        lines.append("  OK -- no orphans.")
+    else:
+        lines.append(f"  FOUND {len(orphans)} orphan(s):")
+        for mp in orphans:
+            lines.append(f"  match_player.id={mp.id} match_id={mp.match_id} user_id={mp.user_id}")
+
+    # 3. Matches without players (probably ok, but worth knowing) -----------
+    hdr("3. Matches with zero MatchPlayer rows")
+    empty_matches = (
+        db.query(Match)
+        .outerjoin(MatchPlayer, MatchPlayer.match_id == Match.id)
+        .group_by(Match.id)
+        .having(func.count(MatchPlayer.id) == 0)
+        .all()
+    )
+    if not empty_matches:
+        lines.append("  OK -- every match has players.")
+    else:
+        lines.append(f"  FOUND {len(empty_matches)} empty match(es):")
+        for m in empty_matches:
+            lines.append(f"  match_id={m.id} date={m.date}")
+
+    # 4. Per-player games and practices --------------------------------------
+    hdr("4. Per-player games/practices (scored matches only)")
+    scored_matches = (
+        db.query(Match)
+        .filter(
+            or_(
+                Match.score_team_a.isnot(None) & Match.score_team_b.isnot(None),
+                Match.scores.isnot(None),
+            )
+        )
+        .order_by(Match.date, Match.ordering)
+        .all()
+    )
+
+    per_player: dict[str, dict] = defaultdict(
+        lambda: {"dates": set(), "games": 0, "per_date": defaultdict(int)}
+    )
+    for m in scored_matches:
+        for mp in m.players:
+            name = mp.user.username
+            per_player[name]["dates"].add(m.date)
+            per_player[name]["games"] += 1
+            per_player[name]["per_date"][m.date] += 1
+
+    lines.append(f"  {'Player':<20} {'games':>6} {'practices':>10}  games/date")
+    lines.append("  " + "-" * 68)
+    for name in sorted(per_player.keys(), key=str.lower):
+        s = per_player[name]
+        per_date_summary = ", ".join(
+            f"{d}:{n}" for d, n in sorted(s["per_date"].items())
+        )
+        lines.append(
+            f"  {name:<20} {s['games']:>6} {len(s['dates']):>10}  {per_date_summary}"
+        )
+
+    # 5. Same (games, different practices) flag -------------------------------
+    hdr("5. Players with SAME game count but DIFFERENT practice counts")
+    by_games: dict[int, list[tuple[str, int]]] = defaultdict(list)
+    for name, s in per_player.items():
+        by_games[s["games"]].append((name, len(s["dates"])))
+    anomalies = []
+    for g, pairs in by_games.items():
+        practice_counts = {p for _, p in pairs}
+        if len(practice_counts) > 1:
+            anomalies.append((g, pairs))
+    if not anomalies:
+        lines.append("  None -- every game-count bucket has consistent practice counts.")
+    else:
+        for g, pairs in anomalies:
+            lines.append(f"  games={g}:")
+            for name, p in sorted(pairs):
+                lines.append(f"    {name:<20} practices={p}")
+
+    # 6. Per-date match counts -----------------------------------------------
+    hdr("6. Scored matches per date")
+    by_date: dict = defaultdict(list)
+    for m in scored_matches:
+        by_date[m.date].append(m.id)
+    for d in sorted(by_date.keys()):
+        lines.append(f"  {d}: {len(by_date[d])} match(es)  ids={by_date[d]}")
+
+    return "\n".join(lines)
 
 
 @router.get("/admin/network", response_class=HTMLResponse)

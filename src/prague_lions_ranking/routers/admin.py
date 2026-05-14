@@ -1,8 +1,10 @@
 from datetime import timedelta
+import csv
+import io
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -414,6 +416,53 @@ async def change_password(
     return templates.TemplateResponse(
         "change_password.html",
         {"request": request, "is_admin": is_admin, "success": True},
+    )
+
+
+MAX_TEAMS = len(TEAM_BY_INDEX)
+
+
+@router.get("/admin/matches/export")
+async def export_matches_csv(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    matches = db.query(Match).order_by(Match.date, Match.ordering).all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    header = ["match_id", "date", "ordering", "match_type", "weight", "is_multiteam", "num_teams"]
+    for i in range(MAX_TEAMS):
+        header.append(f"team_{i + 1}_players")
+        header.append(f"team_{i + 1}_score")
+    header.append("notes")
+    writer.writerow(header)
+
+    for m in matches:
+        scores = m.parsed_scores
+        row = [
+            m.id,
+            m.date.isoformat(),
+            m.ordering,
+            m.match_type or "",
+            m.weight,
+            int(bool(m.is_multiteam)),
+            m.num_teams,
+        ]
+        for i in range(MAX_TEAMS):
+            players = m.get_team_players(i)
+            row.append("|".join(p.username for p in players))
+            if scores is not None and i < len(scores):
+                row.append(scores[i])
+            else:
+                row.append("")
+        row.append(m.notes or "")
+        writer.writerow(row)
+
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=matches.csv"},
     )
 
 

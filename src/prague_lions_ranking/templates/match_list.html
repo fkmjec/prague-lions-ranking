@@ -10,7 +10,10 @@
             <div class="card-header">
                 <h2>Match History</h2>
                 {% if is_admin %}
-                <a href="/admin/matches/new" class="btn-new">+ New Match</a>
+                <div class="card-header-actions">
+                    <a href="/admin/matches/export" class="btn-new">Export CSV</a>
+                    <a href="/admin/matches/new" class="btn-new">+ New Match</a>
+                </div>
                 {% endif %}
             </div>
             {% if not is_admin %}
